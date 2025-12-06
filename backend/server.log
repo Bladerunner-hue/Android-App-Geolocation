@@ -1,0 +1,10 @@
+nohup: ignoring input
+/home/al/Documents/pro/Android-App-Geolocation/backend/main.py:77: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+  class UserResponse(BaseModel):
+/home/al/Documents/pro/Android-App-Geolocation/backend/main.py:98: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+  class LocationResponse(BaseModel):
+INFO:     Started server process [51853]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:42202 - "POST /api/auth/login HTTP/1.1" 200 OK
