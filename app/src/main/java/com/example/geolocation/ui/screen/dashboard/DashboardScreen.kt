@@ -3,6 +3,7 @@ package com.example.geolocation.ui.screen.dashboard
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,7 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CompassCalibration
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Map
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.example.geolocation.domain.model.GeoLocation
 import com.example.geolocation.ui.component.LoadingIndicator
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     state: DashboardUiState,
@@ -43,7 +45,7 @@ fun DashboardScreen(
                 title = { Text("Dashboard") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -119,7 +121,7 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun DashboardActionCard(
+private fun RowScope.DashboardActionCard(
     title: String,
     description: String,
     icon: @Composable () -> Unit,

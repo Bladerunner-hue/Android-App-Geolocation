@@ -18,13 +18,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            GeolocationApp()
+            GeoTrackApp()
         }
     }
 }
 
 @Composable
-private fun GeolocationApp() {
+private fun GeoTrackApp() {
     val navController = rememberNavController()
     GeolocationTheme {
         Surface(
