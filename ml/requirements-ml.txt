@@ -1,5 +1,8 @@
-# GeoAI MoE training stack (pure TensorFlow)
-tensorflow>=2.15,<2.21
+# TensorFlow-only training environment (keep separate from PyTorch)
+tensorflow[and-cuda]>=2.15,<2.21
+tensorflow-hub>=0.16
 numpy>=1.24
-# Optional: local Spark for Gold export
-# pyspark>=3.5
+soundfile>=0.12
+scipy>=1.11
+# Optional Hub uploads (never hardcode tokens)
+huggingface-hub>=0.23

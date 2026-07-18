@@ -1,12 +1,7 @@
-"""
-Train GeoAI MoE on minimal data (tensorflow-talex + manifest class weights).
+"""EXPERIMENTAL MoE / synthetic path — NOT for production release.
 
-Usage (from repo root):
-  python -m ml.synthetic_bootstrap          # ~200 synthetic examples
-  python -m ml.train --epochs 5             # quick functional model
-  python -m ml.train --epochs 12 --export   # train + SavedModel
-
-Real data: point --train-manifest / --val-manifest at PySpark Gold manifests.
+Use ``python -m ml.train_fusion_v0`` with human Train Mode labels instead.
+This module remains only for controlled comparison of the old raw-media MoE path.
 """
 
 from __future__ import annotations

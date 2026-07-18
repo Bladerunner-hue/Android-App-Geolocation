@@ -14,3 +14,20 @@
 .cxx
 local.properties
 .env
+# ML artifacts (never commit weights, TFRecords, media)
+ml/artifacts/
+ml/checkpoints/
+ml/data_sample/fusion_wiring/
+ml/data_sample/tfrecords/
+ml/**/__pycache__/
+*.weights.h5
+*.tflite
+backend/media_store/
+.venv*/
+.venv-tf/
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

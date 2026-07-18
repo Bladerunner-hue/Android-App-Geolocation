@@ -1,107 +1,225 @@
 """
-Post-training INT8 TFLite export for on-device vibe tagging (pass-3 style).
+Export fusion_v0 → SavedModel + TFLite with mandatory weights + parity gate.
 
-Representative dataset from TFRecord manifest (no random noise for calib).
+  python -m ml.export_tflite \\
+    --weights /secure/artifacts/fusion-v0-seed42.weights.h5 \\
+    --parity-data /secure/geojournal/fusion-v0/eval/parity.npz \\
+    --quantization float32 \\
+    --savedmodel-dir /secure/artifacts/fusion-v0/r1/saved_model \\
+    --out /secure/artifacts/fusion-v0/r1/fusion.tflite
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
+from typing import Any, Dict, Optional
 
-import tensorflow as tf
+import numpy as np
 
 _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from ml.config import (  # noqa: E402
-    DEFAULT_CHECKPOINT_DIR,
-    DEFAULT_TFRECORD_DIR,
-    DEFAULT_TFLITE_PATH,
-)
-from ml.tf_data_pipeline import build_dataset  # noqa: E402
-from moe_kickstart import build_geoai_moe, setup_runtime  # noqa: E402
+
+def _load_features(path: Path) -> Dict[str, np.ndarray]:
+    z = np.load(path)
+    # accept both naming conventions
+    def pick(*names):
+        for n in names:
+            if n in z.files:
+                return z[n]
+        raise KeyError(f"Need one of {names} in {path}")
+
+    return {
+        "image_embedding": pick("image_embedding", "image_emb").astype(np.float32),
+        "audio_embedding": pick("audio_embedding", "audio_emb").astype(np.float32),
+        "context": pick("context").astype(np.float32),
+        "modality_mask": pick("modality_mask", "presence_mask").astype(np.float32),
+    }
+
+
+def export(
+    weights: Path,
+    parity_data: Path,
+    out: Path,
+    savedmodel_dir: Path,
+    quantization: str = "float32",
+    representative_data: Optional[Path] = None,
+    min_calibration_samples: int = 256,
+    force: bool = False,
+    max_prob_mae: float = 1e-3,
+) -> Dict[str, Any]:
+    import tensorflow as tf
+
+    from ml.fusion_v0 import (
+        AUDIO_DIM,
+        CONTEXT_DIM,
+        IMAGE_DIM,
+        MASK_DIM,
+        build_fusion_v0,
+    )
+
+    if not weights.is_file():
+        raise FileNotFoundError(
+            f"Trained weights required: {weights}. No untrained export allowed."
+        )
+    if out.exists() and not force:
+        raise FileExistsError(f"Refusing overwrite {out} (use --force)")
+    if savedmodel_dir.exists() and not force:
+        raise FileExistsError(f"Refusing overwrite {savedmodel_dir} (use --force)")
+
+    model = build_fusion_v0()
+    model.load_weights(str(weights))
+
+    parity = _load_features(parity_data)
+    n = parity["image_embedding"].shape[0]
+    if n < 1:
+        raise ValueError("parity fixture empty")
+
+    batch = {k: tf.constant(v) for k, v in parity.items()}
+    ref = model(batch, training=False)
+    ref_prob = ref["vibe_probabilities"].numpy()
+
+    class Module(tf.Module):
+        def __init__(self, m):
+            super().__init__()
+            self.m = m
+
+        @tf.function(
+            input_signature=[
+                tf.TensorSpec([None, IMAGE_DIM], tf.float32, name="image_embedding"),
+                tf.TensorSpec([None, AUDIO_DIM], tf.float32, name="audio_embedding"),
+                tf.TensorSpec([None, CONTEXT_DIM], tf.float32, name="context"),
+                tf.TensorSpec([None, MASK_DIM], tf.float32, name="modality_mask"),
+            ]
+        )
+        def serving_default(self, image_embedding, audio_embedding, context, modality_mask):
+            return self.m(
+                {
+                    "image_embedding": image_embedding,
+                    "audio_embedding": audio_embedding,
+                    "context": context,
+                    "modality_mask": modality_mask,
+                },
+                training=False,
+            )
+
+    mod = Module(model)
+    _ = mod.serving_default(
+        batch["image_embedding"][:1],
+        batch["audio_embedding"][:1],
+        batch["context"][:1],
+        batch["modality_mask"][:1],
+    )
+    savedmodel_dir.mkdir(parents=True, exist_ok=True)
+    tf.saved_model.save(
+        mod,
+        str(savedmodel_dir),
+        signatures={"serving_default": mod.serving_default},
+    )
+
+    concrete = mod.serving_default.get_concrete_function()
+    converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete], mod)
+
+    if quantization == "float16":
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+        converter.target_spec.supported_types = [tf.float16]
+    elif quantization == "int8":
+        if representative_data is None or not Path(representative_data).is_file():
+            raise ValueError("INT8 requires --representative-data NPZ")
+        rep = _load_features(Path(representative_data))
+        if rep["image_embedding"].shape[0] < min_calibration_samples:
+            raise ValueError(
+                f"Need ≥{min_calibration_samples} calibration rows, "
+                f"got {rep['image_embedding'].shape[0]}"
+            )
+
+        def rep_gen():
+            nrep = rep["image_embedding"].shape[0]
+            for i in range(min(nrep, 512)):
+                yield [
+                    rep["image_embedding"][i : i + 1],
+                    rep["audio_embedding"][i : i + 1],
+                    rep["context"][i : i + 1],
+                    rep["modality_mask"][i : i + 1],
+                ]
+
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+        converter.representative_dataset = rep_gen
+    elif quantization != "float32":
+        raise ValueError(quantization)
+
+    tflite_bytes = converter.convert()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(tflite_bytes)
+
+    # TFLite parity on first sample
+    interpreter = tf.lite.Interpreter(model_content=tflite_bytes)
+    interpreter.allocate_tensors()
+    for detail, arr in zip(
+        interpreter.get_input_details(),
+        [
+            parity["image_embedding"][:1],
+            parity["audio_embedding"][:1],
+            parity["context"][:1],
+            parity["modality_mask"][:1],
+        ],
+    ):
+        interpreter.set_tensor(detail["index"], arr.astype(detail["dtype"]))
+    interpreter.invoke()
+    tflite_prob = None
+    for detail in interpreter.get_output_details():
+        t = interpreter.get_tensor(detail["index"])
+        if t.ndim >= 2 and t.shape[-1] == 7:
+            tflite_prob = t
+            break
+    mae = 0.0
+    if tflite_prob is not None and quantization == "float32":
+        mae = float(np.mean(np.abs(tflite_prob - ref_prob[:1])))
+        if mae > max_prob_mae:
+            raise RuntimeError(f"Parity MAE {mae} > {max_prob_mae}")
+
+    report = {
+        "weights": str(weights),
+        "out": str(out),
+        "savedmodel": str(savedmodel_dir),
+        "quantization": quantization,
+        "parity_mae": mae,
+        "bytes": len(tflite_bytes),
+    }
+    (out.parent / "export_report.json").write_text(json.dumps(report, indent=2))
+    return report
 
 
 def main() -> int:
     p = argparse.ArgumentParser()
+    p.add_argument("--weights", type=Path, required=True)
+    p.add_argument("--parity-data", type=Path, required=True)
+    p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--savedmodel-dir", type=Path, required=True)
     p.add_argument(
-        "--weights",
-        type=Path,
-        default=DEFAULT_CHECKPOINT_DIR / "best.weights.h5",
+        "--quantization", choices=("float32", "float16", "int8"), default="float32"
     )
-    p.add_argument(
-        "--train-manifest",
-        type=Path,
-        default=DEFAULT_TFRECORD_DIR / "train" / "manifest_train.json",
-    )
-    p.add_argument("--out", type=Path, default=DEFAULT_TFLITE_PATH)
-    p.add_argument("--num-calib", type=int, default=32)
+    p.add_argument("--representative-data", type=Path, default=None)
+    p.add_argument("--min-calibration-samples", type=int, default=256)
+    p.add_argument("--force", action="store_true")
+    p.add_argument("--max-prob-mae", type=float, default=1e-3)
     args = p.parse_args()
-
-    setup_runtime(mixed_precision=False)
-    model = build_geoai_moe(hidden=256, num_blocks=2)
-
-    if args.weights.exists():
-        model.load_weights(str(args.weights))
-        print(f"Loaded {args.weights}")
-    else:
-        print("WARNING: no weights — exporting untrained structure for pipeline test")
-
-    # Concrete TF function for converter
-    @tf.function(
-        input_signature=[
-            tf.TensorSpec([1, 224, 224, 3], tf.float32),
-            tf.TensorSpec([1, 96, 64, 1], tf.float32),
-            tf.TensorSpec([1, 8], tf.float32),
-        ]
+    report = export(
+        weights=args.weights,
+        parity_data=args.parity_data,
+        out=args.out,
+        savedmodel_dir=args.savedmodel_dir,
+        quantization=args.quantization,
+        representative_data=args.representative_data,
+        min_calibration_samples=args.min_calibration_samples,
+        force=args.force,
+        max_prob_mae=args.max_prob_mae,
     )
-    def serving(image, audio_mel, geo):
-        out = model.infer(image, audio_mel, geo)
-        # TFLite prefers flat tensors
-        return {
-            "vibe_id": out["vibe_id"],
-            "vibe_prob": out["vibe_prob"],
-            "insight_embedding": out["insight_embedding"],
-        }
-
-    concrete = serving.get_concrete_function()
-    converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete], model)
-
-    if args.train_manifest.exists():
-        calib_ds = build_dataset(
-            args.train_manifest, batch_size=1, training=False, cache=False
-        )
-
-        def rep():
-            n = 0
-            for x, _ in calib_ds:
-                yield [
-                    tf.cast(x["image"], tf.float32),
-                    tf.cast(x["audio_mel"], tf.float32),
-                    tf.cast(x["geo"], tf.float32),
-                ]
-                n += 1
-                if n >= args.num_calib:
-                    break
-
-        converter.optimizations = [tf.lite.Optimize.DEFAULT]
-        converter.representative_dataset = rep
-        try:
-            converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
-            converter.inference_input_type = tf.float32
-            converter.inference_output_type = tf.float32
-        except Exception:
-            pass
-    else:
-        converter.optimizations = [tf.lite.Optimize.DEFAULT]
-
-    tflite_model = converter.convert()
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_bytes(tflite_model)
-    print(f"TFLite → {args.out} ({len(tflite_model)} bytes)")
+    print(json.dumps(report, indent=2))
     return 0
 
 
