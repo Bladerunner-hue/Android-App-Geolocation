@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "rows": 50,
+  "class_counts": {
+    "0": 8,
+    "1": 7,
+    "2": 7,
+    "3": 7,
+    "4": 7,
+    "5": 7,
+    "6": 7
+  },
+  "class_weights": {
+    "0": 0.9441253398185446,
+    "1": 1.0093124433635758,
+    "2": 1.0093124433635758,
+    "3": 1.0093124433635758,
+    "4": 1.0093124433635758,
+    "5": 1.0093124433635758,
+    "6": 1.0093124433635758
+  },
+  "splits": {
+    "train": 42,
+    "val": 4,
+    "test": 4
+  },
+  "gold_path": "ml/data_sample/gold/gold_rows.jsonl",
+  "note": "Parquet/TFRecord writer should run executor-side. Do not collect image/audio bytes to the driver."
+}

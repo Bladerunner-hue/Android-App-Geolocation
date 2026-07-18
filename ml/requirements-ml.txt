@@ -1,0 +1,5 @@
+# GeoAI MoE training stack (pure TensorFlow)
+tensorflow>=2.15,<2.21
+numpy>=1.24
+# Optional: local Spark for Gold export
+# pyspark>=3.5

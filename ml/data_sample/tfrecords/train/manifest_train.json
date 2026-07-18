@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "shards": [
+    "train-00000.tfrecord",
+    "train-00001.tfrecord",
+    "train-00002.tfrecord",
+    "train-00003.tfrecord"
+  ],
+  "row_counts": [
+    50,
+    50,
+    50,
+    50
+  ],
+  "class_counts": {
+    "0": 29,
+    "1": 29,
+    "2": 29,
+    "3": 29,
+    "4": 28,
+    "5": 28,
+    "6": 28
+  },
+  "sha256": {
+    "train-00000.tfrecord": "2dc9fae986d5a4369c7586932340d5231abde52a04d4d683206f9b7284797ef4",
+    "train-00001.tfrecord": "2312f9d249bacca4428e23724304cf94cbf51b646d67e7d71172f97140cbc013",
+    "train-00002.tfrecord": "9194595f2e0b169e018145491b9d76476ef758fa7be44bba0b02afd348c112c7",
+    "train-00003.tfrecord": "0ecf9957d01cd7320424782b257bb670a11da0ed7dcdea305304e667a5442058"
+  },
+  "img_size": 224,
+  "n_mels": 64,
+  "audio_frames": 96,
+  "geo_raw_dim": 8,
+  "vibe_labels": [
+    "serene",
+    "energetic",
+    "chaotic",
+    "nostalgic",
+    "tense",
+    "social",
+    "contemplative"
+  ],
+  "split": "train"
+}
