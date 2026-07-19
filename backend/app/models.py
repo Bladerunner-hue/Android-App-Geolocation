@@ -1,4 +1,13 @@
-"""SQLAlchemy models. Embeddings stored as JSON for SQLite parity; pgvector SQL migration for prod."""
+"""SQLAlchemy models.
+
+Postgres production types live in migrations (pgvector). ORM columns use JSON for
+embeddings so GEO_TEST_MODE SQLite stays dependency-light. Application code owns
+vector dimensions:
+
+  perceptual_embedding  128  — fusion_v0
+  text_embedding        768  — multilingual semantic (separate space)
+  insight_embedding     128  — optional auxiliary
+"""
 
 from __future__ import annotations
 
@@ -12,6 +21,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -20,6 +30,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.database import Base
 
+# Must match Kotlin Train Mode + fusion_v0 head. Never invent labels outside this set.
 VIBE_LABELS = (
     "serene",
     "energetic",
@@ -28,6 +39,14 @@ VIBE_LABELS = (
     "tense",
     "social",
     "contemplative",
+)
+
+PERCEPTUAL_DIM = 128
+TEXT_EMBED_DIM = 768
+INSIGHT_DIM = 128
+
+ANALYSIS_SOURCES = frozenset(
+    {"unavailable", "on_device", "server_fusion", "rules"}
 )
 
 
@@ -43,6 +62,7 @@ class User(Base):
     last_login: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     memories: Mapped[list["Memory"]] = relationship(back_populates="user")
+    training_labels: Mapped[list["TrainingLabel"]] = relationship(back_populates="user")
 
 
 class Memory(Base):
@@ -57,8 +77,8 @@ class Memory(Base):
     caption: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     vibe_label: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     vibe_confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    # unavailable | on_device | enriched | pending — high-level status for clients
     analysis_status: Mapped[str] = mapped_column(String(32), default="unavailable")
-    # unavailable | on_device | enriched | pending
     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     captured_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -66,10 +86,47 @@ class Memory(Base):
     private_mode: Mapped[bool] = mapped_column(Boolean, default=False)
     photo_path: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     audio_path: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
-    # Separate vectors: perceptual (image/audio fusion) vs text (search encoder)
+
+    # Separate embedding spaces (JSON list in SQLite; vector(N) in Postgres migrations)
     perceptual_embedding: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
     text_embedding: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
+    insight_embedding: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
+
+    model_version: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    # on_device | server_fusion | rules | unavailable
+    analysis_source: Mapped[str] = mapped_column(String(32), default="unavailable")
+    # Legacy free-form evidence (kept for older clients)
     evidence_json: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
+    # Production structured evidence (vibe_probs, modality_mask, context12, …)
+    structured_evidence: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
+    enrichment_requested: Mapped[bool] = mapped_column(Boolean, default=False)
     content_sha256: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="memories")
+
+
+class TrainingLabel(Base):
+    """Human Train Mode labels. Backend never invents vibes; never trains here."""
+
+    __tablename__ = "training_labels"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    # Kotlin memory client_uuid or server-side stable id string
+    memory_id: Mapped[str] = mapped_column(String(64), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    session_id: Mapped[str] = mapped_column(String(64), index=True)
+    primary_vibe: Mapped[str] = mapped_column(String(32))
+    secondary_vibes: Mapped[Any] = mapped_column(JSON, default=list)
+    valence: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+    arousal: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
+    label_confidence: Mapped[int] = mapped_column(SmallInteger)
+    label_source: Mapped[str] = mapped_column(String(32), default="human_self")
+    utc_offset_minutes: Mapped[int] = mapped_column(Integer)
+    location_accuracy_m: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    consent_for_training: Mapped[bool] = mapped_column(Boolean, default=False)
+    consent_for_cloud: Mapped[bool] = mapped_column(Boolean, default=False)
+    labelled_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    corrects_label_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    user: Mapped["User"] = relationship(back_populates="training_labels")

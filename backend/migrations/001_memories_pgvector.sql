@@ -1,5 +1,9 @@
--- GeoJournal PostgreSQL 16 + pgvector migration
--- Apply: psql "$GEO_DATABASE_URL" -f backend/migrations/001_memories_pgvector.sql
+-- GeoJournal PostgreSQL 16 + pgvector migration (baseline)
+-- Apply:
+--   psql "$GEO_DATABASE_URL" -f backend/migrations/001_memories_pgvector.sql
+--   psql "$GEO_DATABASE_URL" -f backend/migrations/002_ai_ml_alignment.sql
+--
+-- Note: 002 upgrades text_embedding to vector(768) and adds training_labels + AI columns.
 
 CREATE EXTENSION IF NOT EXISTS vector;
 

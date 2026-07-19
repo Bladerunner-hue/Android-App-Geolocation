@@ -9,7 +9,9 @@
 
 ## Context and Problem Statement
 
-The current Android application (`com.example.school`) is built using outdated patterns and technologies:
+The historical Android template (`com.example.school` under `java/` source roots)
+has been replaced by Kotlin package `com.example.geolocation`. At the time of this
+ADR draft, the app still used outdated patterns and technologies:
 
 ### Current State Analysis
 

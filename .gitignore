@@ -14,6 +14,10 @@
 .cxx
 local.properties
 .env
+# Secrets: keep templates only; never real keys
+secrets/*
+!secrets/README.md
+!secrets/*.example
 # ML artifacts (never commit weights, TFRecords, media)
 ml/artifacts/
 ml/checkpoints/
@@ -23,9 +27,11 @@ ml/**/__pycache__/
 *.weights.h5
 *.tflite
 backend/media_store/
+backend/geojournal.db
 .venv*/
 .venv-tf/
 .env
+backend/.env
 __pycache__/
 *.pyc
 .pytest_cache/

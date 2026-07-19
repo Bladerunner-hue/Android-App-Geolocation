@@ -1,5 +1,15 @@
 # GeoJournal architecture
 
+## Role split (no redundancy)
+
+| Plane | Owns |
+|-------|------|
+| **Kotlin / Room** | Offline journal, privacy, Train Mode, edge fusion telemetry, sync outbox |
+| **FastAPI + PG16/pgvector** | Auth, media, memories, training_labels, vector search storage |
+| **pyenv TF + PySpark** | Offline train from consented labels → TFLite back to edge |
+
+Kotlin is **edge capture + telemetry**, not a second trainer or 768-D encoder.
+
 ## Boundaries
 
 - TensorFlow does not run inside Spark ETL or the FastAPI request path.
@@ -8,16 +18,20 @@
 - Text semantic search uses a **768-D** multilingual encoder; fusion perceptual is **128-D**.
 - Private Mode defaults on; cloud sync and enrichment are separate opt-ins.
 - API failure never silently sends media/GPS to a cloud LLM.
+- **Single JWT store:** `TokenStore` → `AuthInterceptor` (no dual DataStore/Room token).
+- Schema: `001_memories_pgvector.sql` + `002_ai_ml_alignment.sql`.
 
 ## Capture → journal
 
 ```text
 Photo + optional 10s mono 16 kHz WAV + optional location
-  → Room memory (offline first)
-  → optional Train Mode human label (before model reveal)
-  → optional on-device fusion_v0 (if TFLite packaged)
-  → WorkManager sync only if Private Mode OFF and cloud sync ON
-  → FastAPI JWT-isolated storage + optional pgvector
+  → ContextEncoderV1 + optional fusion_v0 telemetry
+  → Room memory (offline first; structured_evidence + perceptual JSON)
+  → optional Train Mode human label (before model reveal) → Room training_labels
+  → WorkManager outbox if !private && cloud sync && JWT
+       POST /api/memories/analyze  (client tensors only; never invent vibe)
+       POST /api/training/labels   (consent_for_cloud required)
+  → FastAPI + pgvector store
 ```
 
 ## ML production vs experiment

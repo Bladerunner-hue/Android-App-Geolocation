@@ -140,6 +140,50 @@ def test_analyze_without_photo(client, auth_headers):
     assert r.json()["latitude"] == 48.85
 
 
+def test_analyze_accepts_ai_fields(client, auth_headers):
+    import json
+
+    perc = [0.01] * 128
+    probs = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.4]
+    files = {"photo": ("t.png", io.BytesIO(_png_bytes()), "image/png")}
+    data = {
+        "client_uuid": str(uuid.uuid4()),
+        "private_mode": "false",
+        "caption": "fusion path",
+        "on_device_vibe": "contemplative",
+        "on_device_confidence": "0.72",
+        "on_device_probs": json.dumps(probs),
+        "perceptual_embedding": json.dumps(perc),
+        "model_version": "fusion_v0-wiring",
+        "analysis_source": "on_device",
+        "structured_evidence": json.dumps(
+            {"modality_mask": [1, 0, 1], "context12_version": "context12-v1"}
+        ),
+        "request_enrichment": "false",
+    }
+    r = client.post("/api/memories/analyze", data=data, files=files, headers=auth_headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["analysis_source"] == "on_device"
+    assert body["model_version"] == "fusion_v0-wiring"
+    assert body["vibe_label"] == "contemplative"
+    assert body["structured_evidence"]["modality_mask"] == [1, 0, 1]
+    assert body["structured_evidence"]["vibe_probs"] == probs
+    assert body["enrichment_requested"] is False
+
+
+def test_analyze_rejects_bad_perceptual_dim(client, auth_headers):
+    import json
+
+    data = {
+        "client_uuid": str(uuid.uuid4()),
+        "private_mode": "false",
+        "perceptual_embedding": json.dumps([0.0] * 64),
+    }
+    r = client.post("/api/memories/analyze", data=data, headers=auth_headers)
+    assert r.status_code == 422
+
+
 def test_search_requires_query(client, auth_headers):
     r = client.get("/api/memories/search", params={"q": ""}, headers=auth_headers)
     assert r.status_code == 400
@@ -152,6 +196,7 @@ def test_openapi_available(client):
     assert "/api/memories/analyze" in paths
     assert "/api/memories/search" in paths
     assert "/api/user/vibe-profile" in paths
+    assert "/api/training/labels" in paths
 
 
 def test_invalid_token(client):

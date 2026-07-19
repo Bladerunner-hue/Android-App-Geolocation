@@ -48,18 +48,47 @@ python -m ml.train_fusion_v0 \
 
 ## Android
 
+Source lives under `app/src/{main,test,androidTest}/kotlin/…` (Kotlin roots;
+legacy `java/…/school` template trees were removed).
+
+- **Continue free offline** on the login screen — no backend credentials required
 - Private Mode default **on**
 - Capture → Room first
-- Train Mode Room table `memory_training_labels`
+- Train Mode (tap a journal memory) → `memory_training_labels`
 - `ContextEncoderV1` / `FusionV0Interpreter` for on-device path
-- WorkManager sync only when explicitly enabled
+- WorkManager sync only when explicitly enabled (and signed in)
+
+### API base URL (credentials / endpoints)
+
+`BuildConfig.MEMORY_API_BASE_URL` is injected from repo-root `local.properties`
+(or defaults to the emulator host alias):
+
+```properties
+# local.properties (gitignored) — see secrets/android.local.properties.example
+MEMORY_API_BASE_URL=http://10.0.2.2:8000/
+```
+
+Release builds require an `https://` base URL.
 
 ## Backend
 
-Fail-closed FastAPI (`JWT_SECRET` + `GEO_DATABASE_URL` required). See
-`backend/.env.example` and `backend/migrations/001_memories_pgvector.sql`.
+Fail-closed **FastAPI** + SQLAlchemy → **PostgreSQL 16 + pgvector**.
+
+- Env: `backend/.env.example` (`JWT_SECRET` + `GEO_DATABASE_URL` required)
+- Schema: `001_memories_pgvector.sql` then **`002_ai_ml_alignment.sql`**
+  (text 768-D, perceptual/insight columns, `training_labels`)
+- Rules: reject `private_mode` uploads; never invent vibes; enrichment gated;
+  no Spark/training in the request path
+- Train labels: `POST /api/training/labels` (requires `consent_for_cloud`)
 
 ```bash
+cp backend/.env.example backend/.env
+# set JWT_SECRET + GEO_DATABASE_URL
+
+# optional local demo account (never production):
+# GEO_SEED_DEMO_USER=1
+# GEO_DEMO_PASSWORD=a-long-local-only-secret
+
 pip install -r backend/requirements-dev.txt
 GEO_TEST_MODE=1 JWT_SECRET=test-only-jwt-secret-not-for-production \
   GEO_DATABASE_URL=sqlite+pysqlite:///:memory: \

@@ -52,6 +52,7 @@ async def test_save_and_bound(tmp_path, monkeypatch):
 
 
 def test_hash_embed_stable():
+    from backend.app.models import TEXT_EMBED_DIM
     from backend.app.services.memory_service import _hash_embed_text
 
     a = _hash_embed_text("cafe lisbon")
@@ -59,4 +60,5 @@ def test_hash_embed_stable():
     c = _hash_embed_text("forest rain")
     assert a == b
     assert a != c
+    assert len(a) == TEXT_EMBED_DIM == 768
     assert abs(sum(x * x for x in a) - 1.0) < 1e-6

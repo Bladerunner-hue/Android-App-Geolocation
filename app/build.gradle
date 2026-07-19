@@ -5,6 +5,20 @@ plugins {
     id 'kotlin-kapt'
 }
 
+// Optional overrides from repo-root local.properties (gitignored).
+def localProps = new Properties()
+def localPropsFile = rootProject.file('local.properties')
+if (localPropsFile.exists()) {
+    localPropsFile.withInputStream { localProps.load(it) }
+}
+// Emulator → host localhost. Physical device: set MEMORY_API_BASE_URL in local.properties.
+def memoryApiBaseUrl = (localProps.getProperty('MEMORY_API_BASE_URL')
+        ?: project.findProperty('MEMORY_API_BASE_URL')
+        ?: 'http://10.0.2.2:8000/').toString()
+if (!memoryApiBaseUrl.endsWith('/')) {
+    memoryApiBaseUrl = memoryApiBaseUrl + '/'
+}
+
 android {
     namespace 'com.example.geolocation'
     compileSdk 34
@@ -17,6 +31,8 @@ android {
         versionName "2.0.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField "String", "MEMORY_API_BASE_URL", "\"${memoryApiBaseUrl}\""
     }
 
     buildTypes {
@@ -41,6 +57,7 @@ android {
 
     buildFeatures {
         compose true
+        buildConfig true
     }
 
     composeOptions {

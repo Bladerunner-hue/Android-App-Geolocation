@@ -1,12 +1,12 @@
-"""Memory upload / search / get."""
+"""Memory upload / search / get. No inference invention; no Spark."""
 
 from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from backend.app.auth import get_current_user
@@ -19,6 +19,42 @@ from backend.app.services.memory_service import MemoryService
 router = APIRouter(prefix="/api/memories", tags=["memories"])
 
 
+def _json_list(raw: Optional[str], field: str) -> Optional[List[float]]:
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{field} must be valid JSON",
+        ) from exc
+    if not isinstance(data, list):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{field} must be a JSON array",
+        )
+    return [float(x) for x in data]
+
+
+def _json_obj(raw: Optional[str], field: str) -> Optional[Dict[str, Any]]:
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{field} must be valid JSON",
+        ) from exc
+    if not isinstance(data, dict):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{field} must be a JSON object",
+        )
+    return data
+
+
 def _parse_meta(
     client_uuid: str,
     private_mode: bool,
@@ -29,26 +65,39 @@ def _parse_meta(
     on_device_vibe: Optional[str],
     on_device_confidence: Optional[float],
     on_device_probs: Optional[str],
+    perceptual_embedding: Optional[str],
+    insight_embedding: Optional[str],
+    model_version: Optional[str],
+    analysis_source: Optional[str],
+    structured_evidence: Optional[str],
     request_enrichment: bool,
 ) -> AnalyzeMeta:
-    probs = None
-    if on_device_probs:
-        probs = json.loads(on_device_probs)
     ts = None
     if captured_at:
         ts = datetime.fromisoformat(captured_at.replace("Z", "+00:00")).replace(tzinfo=None)
-    return AnalyzeMeta(
-        client_uuid=client_uuid,
-        private_mode=private_mode,
-        caption=caption,
-        latitude=latitude,
-        longitude=longitude,
-        captured_at=ts,
-        on_device_vibe=on_device_vibe,
-        on_device_confidence=on_device_confidence,
-        on_device_probs=probs,
-        request_enrichment=request_enrichment,
-    )
+    try:
+        return AnalyzeMeta(
+            client_uuid=client_uuid,
+            private_mode=private_mode,
+            caption=caption,
+            latitude=latitude,
+            longitude=longitude,
+            captured_at=ts,
+            on_device_vibe=on_device_vibe,
+            on_device_confidence=on_device_confidence,
+            on_device_probs=_json_list(on_device_probs, "on_device_probs"),
+            perceptual_embedding=_json_list(perceptual_embedding, "perceptual_embedding"),
+            insight_embedding=_json_list(insight_embedding, "insight_embedding"),
+            model_version=model_version,
+            analysis_source=analysis_source,
+            structured_evidence=_json_obj(structured_evidence, "structured_evidence"),
+            request_enrichment=request_enrichment,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
 
 
 @router.post("/analyze", response_model=MemoryResponse)
@@ -62,6 +111,11 @@ async def analyze_memory(
     on_device_vibe: Optional[str] = Form(None),
     on_device_confidence: Optional[float] = Form(None),
     on_device_probs: Optional[str] = Form(None),
+    perceptual_embedding: Optional[str] = Form(None),
+    insight_embedding: Optional[str] = Form(None),
+    model_version: Optional[str] = Form(None),
+    analysis_source: Optional[str] = Form(None),
+    structured_evidence: Optional[str] = Form(None),
     request_enrichment: bool = Form(False),
     photo: Optional[UploadFile] = File(None),
     audio: Optional[UploadFile] = File(None),
@@ -79,6 +133,11 @@ async def analyze_memory(
         on_device_vibe,
         on_device_confidence,
         on_device_probs,
+        perceptual_embedding,
+        insight_embedding,
+        model_version,
+        analysis_source,
+        structured_evidence,
         request_enrichment,
     )
     svc = MemoryService(db, settings)

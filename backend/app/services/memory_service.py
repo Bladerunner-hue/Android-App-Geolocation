@@ -1,4 +1,11 @@
-"""Memory create/search/profile. Never launches Spark. No silent cloud LLM."""
+"""Memory create/search/profile.
+
+Rules:
+  - Reject private_mode uploads hard.
+  - Never invent vibes; store only client on-device results (+ media).
+  - Enrichment only when GEO_ENRICHMENT_ENABLED and client request_enrichment.
+  - No Spark. No silent external LLM. No training in the request path.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +19,13 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from backend.app.config import Settings
-from backend.app.models import VIBE_LABELS, Memory, User
+from backend.app.models import (
+    ANALYSIS_SOURCES,
+    TEXT_EMBED_DIM,
+    VIBE_LABELS,
+    Memory,
+    User,
+)
 from backend.app.schemas import AnalyzeMeta, MemoryResponse
 from backend.app.services.media_storage import MediaStorage
 
@@ -28,9 +41,12 @@ def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
     return dot / (na * nb)
 
 
-def _hash_embed_text(text: str, dim: int = 64) -> List[float]:
-    """Deterministic bag-of-words hash embedding for lexical-semantic bridge.
-    Not a production text encoder — used until an aligned model is registered.
+def _hash_embed_text(text: str, dim: int = TEXT_EMBED_DIM) -> List[float]:
+    """Deterministic bag-of-words hash embedding (placeholder).
+
+    Dimension matches production text space (768) so schema/search code paths stay
+    aligned. This is **not** the multilingual encoder — replace when a real
+    768-D model is registered. Do not treat scores as quality metrics.
     """
     vec = [0.0] * dim
     tokens = re.findall(r"[a-z0-9]+", text.lower())
@@ -51,12 +67,18 @@ def memory_to_response(m: Memory) -> MemoryResponse:
         vibe_label=m.vibe_label,
         vibe_confidence=m.vibe_confidence,
         analysis_status=m.analysis_status,
+        analysis_source=m.analysis_source or "unavailable",
+        model_version=m.model_version,
         latitude=m.latitude,
         longitude=m.longitude,
         captured_at=m.captured_at,
         created_at=m.created_at,
         private_mode=m.private_mode,
-        evidence=m.evidence_json,
+        enrichment_requested=bool(m.enrichment_requested),
+        evidence=m.evidence_json if isinstance(m.evidence_json, dict) else None,
+        structured_evidence=(
+            m.structured_evidence if isinstance(m.structured_evidence, dict) else None
+        ),
     )
 
 
@@ -100,51 +122,87 @@ class MemoryService:
             user.id,
             audio,
             kind="audio",
-            allowed_content=("audio/wav", "audio/x-wav", "audio/wave", "application/octet-stream"),
+            allowed_content=(
+                "audio/wav",
+                "audio/x-wav",
+                "audio/wave",
+                "application/octet-stream",
+            ),
             max_bytes=self.settings.max_audio_bytes,
         )
 
-        vibe = meta.on_device_vibe
-        conf = meta.on_device_confidence
+        vibe = meta.on_device_vibe if meta.on_device_vibe in VIBE_LABELS else None
+        conf = meta.on_device_confidence if vibe is not None else None
+
+        # Client-reported source; never invent inference server-side here.
+        if meta.analysis_source and meta.analysis_source in ANALYSIS_SOURCES:
+            analysis_source = meta.analysis_source
+        elif vibe is not None:
+            analysis_source = "on_device"
+        else:
+            analysis_source = "unavailable"
+
         status_s = "unavailable"
-        if vibe and vibe in VIBE_LABELS:
+        if vibe is not None:
             status_s = "on_device"
+
+        enrichment_requested = bool(meta.request_enrichment)
         if (
-            meta.request_enrichment
+            enrichment_requested
             and self.settings.enrichment_enabled
             and status_s == "unavailable"
         ):
-            # Placeholder: no silent LLM. Optional local enrichment only when enabled.
+            # Gated placeholder only — no silent LLM, no invented vibe.
             status_s = "pending"
 
+        structured = dict(meta.structured_evidence or {})
+        if meta.on_device_probs is not None and "vibe_probs" not in structured:
+            structured["vibe_probs"] = meta.on_device_probs
+        structured.setdefault("has_photo", photo_path is not None)
+        structured.setdefault("has_audio", audio_path is not None)
+        structured.setdefault(
+            "has_location",
+            meta.latitude is not None and meta.longitude is not None,
+        )
+        structured.setdefault("source", analysis_source)
+
+        # Legacy free-form blob for older clients / tools
         evidence: Dict[str, Any] = {
             "has_photo": photo_path is not None,
             "has_audio": audio_path is not None,
             "has_location": meta.latitude is not None and meta.longitude is not None,
-            "source": status_s,
+            "source": analysis_source,
             "vibe_probs": meta.on_device_probs,
         }
+
         content_sha = photo_sha or audio_sha
         text_blob = " ".join(
             filter(None, [meta.caption, vibe, f"{meta.latitude},{meta.longitude}"])
         )
+        # Placeholder 768-D hash until a real multilingual encoder is wired.
         text_emb = _hash_embed_text(text_blob) if text_blob.strip() else None
 
         mem = Memory(
             user_id=user.id,
             client_uuid=meta.client_uuid,
             caption=meta.caption,
-            vibe_label=vibe if vibe in VIBE_LABELS else None,
+            vibe_label=vibe,
             vibe_confidence=conf,
             analysis_status=status_s,
+            analysis_source=analysis_source,
+            model_version=meta.model_version,
             latitude=meta.latitude,
             longitude=meta.longitude,
             captured_at=meta.captured_at or datetime.utcnow(),
             private_mode=False,
             photo_path=photo_path,
             audio_path=audio_path,
+            perceptual_embedding=meta.perceptual_embedding,
+            insight_embedding=meta.insight_embedding,
             text_embedding=text_emb,
             evidence_json=evidence,
+            structured_evidence=structured or None,
+            enrichment_requested=enrichment_requested,
             content_sha256=content_sha,
         )
         self.db.add(mem)
@@ -165,10 +223,12 @@ class MemoryService:
         limit = max(1, min(limit, 50))
         rows = list(
             self.db.scalars(
-                select(Memory).where(Memory.user_id == user.id).order_by(Memory.captured_at.desc())
+                select(Memory)
+                .where(Memory.user_id == user.id)
+                .order_by(Memory.captured_at.desc())
             )
         )
-        # Prefer semantic when text embeddings exist
+        # Prefer "semantic" path when embeddings exist (placeholder hash today).
         with_emb = [m for m in rows if m.text_embedding]
         if with_emb:
             qv = _hash_embed_text(q)
@@ -181,7 +241,6 @@ class MemoryService:
             if top:
                 return "semantic", top
 
-        # Lexical fallback
         like = f"%{q.lower()}%"
         lex = list(
             self.db.scalars(

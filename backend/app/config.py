@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     bind_host: str = Field(alias="GEO_BIND_HOST", default="127.0.0.1")
     # Testing: allow sqlite without secrets when GEO_TEST_MODE=1
     test_mode: bool = Field(alias="GEO_TEST_MODE", default=False)
+    # Local-only demo account seed (never for production).
+    seed_demo_user: bool = Field(alias="GEO_SEED_DEMO_USER", default=False)
+    demo_username: str = Field(alias="GEO_DEMO_USERNAME", default="demo")
+    demo_email: str = Field(alias="GEO_DEMO_EMAIL", default="demo@localhost")
+    demo_password: str = Field(alias="GEO_DEMO_PASSWORD", default="")
 
     @property
     def resolved_database_url(self) -> str:
