@@ -18,8 +18,11 @@ MobileNetV3Small [576] + YAMNet [1024] + context12 [12] + mask [3]
 | Frozen YAMNet + MobileNet | Untrained weights in git |
 | Session-grouped temporal splits | Random i.i.d. photo splits |
 
-Docs: [docs/TRAINING_FUSION_V0.md](docs/TRAINING_FUSION_V0.md) ·
+Docs: [docs/CONFIRMATION.md](docs/CONFIRMATION.md) (status + feedback) ·
+[docs/TRAINING_FUSION_V0.md](docs/TRAINING_FUSION_V0.md) ·
 [docs/DATASETS.md](docs/DATASETS.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+**Next data plane:** PySpark medallion → NPZ/manifest (TF stays in pyenv).
 
 ### Quick wiring (synthetic features only)
 

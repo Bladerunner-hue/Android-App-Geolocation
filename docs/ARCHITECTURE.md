@@ -30,3 +30,20 @@ Photo + optional 10s mono 16 kHz WAV + optional location
 ## Context contract
 
 `context12-v1` — see `ml/context12.py` and `ContextEncoderV1.kt`.
+
+## Data plane (upcoming): PySpark
+
+```text
+Events / Train Mode export
+  → PySpark Bronze → Silver → Gold
+  → NPZ / TFRecord + manifest (executor-side writes)
+  → pyenv TensorFlow train_fusion_v0
+  → TFLite → Android
+```
+
+- **PySpark** is the planned bulk ETL entry (pure DataFrame/SQL, windowed sessions).
+- No TensorFlow inside Spark ETL modules; no training the fusion head on executors.
+- Optional Scala jobs can follow later if needed; they are not the default.
+- Seed: `backend/jobs/pyspark_export_gold.py`.
+
+Status and feedback: [CONFIRMATION.md](CONFIRMATION.md).

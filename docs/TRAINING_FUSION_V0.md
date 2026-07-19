@@ -104,3 +104,11 @@ not accuracy alone.
 Valence/arousal multi-task, active learning, supervised contrastive on 128-D,
 temperature scaling, location dropout, public sound as **masked aux loss only**,
 sparse MoE only if dense capacity is proven insufficient.
+
+## Upcoming data plane: PySpark
+
+Feature medallion and bulk export will use **PySpark** (not a Scala-first
+rewrite). TF training stays in pyenv; Spark never runs the fusion head.
+
+See [CONFIRMATION.md](CONFIRMATION.md) for the accepted feedback log and
+PySpark boundary rules. Seed job: `backend/jobs/pyspark_export_gold.py`.

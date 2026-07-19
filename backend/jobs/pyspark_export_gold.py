@@ -1,19 +1,19 @@
 """
-PySpark Gold export skeleton (pyspark-tal-excellence).
+PySpark Gold export — planned data plane for GeoJournal fusion_v0.
 
 Medallion:
-  Bronze: raw app events (photo path, audio path, lat/lon, optional user vibe)
-  Silver: decoded metadata + trajectory features (window functions)
-  Gold:   training-ready rows + deterministic split
+  Bronze: raw app events / Train Mode export (paths, geo, human vibes, consent)
+  Silver: session windows, dwell, license-safe sound-bootstrap joins
+  Gold:   training-ready rows + deterministic session-temporal split metadata
 
 Hard rules:
-  - No TensorFlow imports in the ETL graph (this file stays TF-free).
-  - Write row metadata + feature columns to Parquet Gold first.
-  - A thin companion writer (see note) can mapPartitions → TFRecords
-    using TensorFlow only inside executors.
+  - **PySpark entry** (not Scala-first). Optional Scala later only if needed.
+  - No TensorFlow imports in this ETL module.
+  - Never collect photo/audio bytes to the driver.
+  - Gold feeds ml.prepare_fusion_dataset / NPZ manifests; TF train stays in pyenv.
+  - Public sound rows are sound-event only — never fabricated vibe labels.
 
-Even 50–200 personal memories benefit from this structure: reproducible
-splits, class counts for manifest weights, trajectory dwell features.
+See docs/CONFIRMATION.md for accepted feedback + status.
 """
 
 from __future__ import annotations
