@@ -87,12 +87,27 @@ def test_search_lexical_and_semantic(client, auth_headers):
     r = client.get("/api/memories/search", params={"q": "Lisbon"}, headers=auth_headers)
     assert r.status_code == 200
     body = r.json()
-    assert body["mode"] in ("semantic", "lexical")
+    # Never claim "semantic" until a real 768 encoder is wired.
+    assert body["mode"] in ("lexical", "lexical_placeholder")
     assert any("Lisbon" in (m.get("caption") or "") for m in body["results"])
 
 
 def test_get_missing(client, auth_headers):
     assert client.get("/api/memories/99999", headers=auth_headers).status_code == 404
+
+
+def test_delete_memory(client, auth_headers):
+    files = {"photo": ("t.png", io.BytesIO(_png_bytes()), "image/png")}
+    data = {
+        "client_uuid": str(uuid.uuid4()),
+        "private_mode": "false",
+        "caption": "to delete",
+    }
+    r = client.post("/api/memories/analyze", data=data, files=files, headers=auth_headers)
+    assert r.status_code == 200, r.text
+    mid = r.json()["id"]
+    assert client.delete(f"/api/memories/{mid}", headers=auth_headers).status_code == 204
+    assert client.get(f"/api/memories/{mid}", headers=auth_headers).status_code == 404
 
 
 def test_vibe_profile(client, auth_headers):

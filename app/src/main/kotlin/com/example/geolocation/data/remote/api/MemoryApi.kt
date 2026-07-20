@@ -5,6 +5,7 @@ import com.example.geolocation.data.remote.dto.MemorySearchDto
 import com.example.geolocation.data.remote.dto.VibeProfileDto
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Multipart
 import retrofit2.http.POST
@@ -43,6 +44,9 @@ interface MemoryApi {
 
     @GET("api/memories/{id}")
     suspend fun get(@Path("id") id: Long): MemoryDto
+
+    @DELETE("api/memories/{id}")
+    suspend fun delete(@Path("id") id: Long)
 
     @GET("api/user/vibe-profile")
     suspend fun vibeProfile(): VibeProfileDto

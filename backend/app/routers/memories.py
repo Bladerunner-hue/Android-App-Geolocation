@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from backend.app.auth import get_current_user
@@ -166,3 +166,14 @@ def get_memory(
     settings: Settings = Depends(get_settings),
 ) -> MemoryResponse:
     return MemoryService(db, settings).get_memory(user, memory_id)
+
+
+@router.delete("/{memory_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_memory(
+    memory_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    """Privacy-first hard delete (row + media files)."""
+    MemoryService(db, settings).delete_memory(user, memory_id)

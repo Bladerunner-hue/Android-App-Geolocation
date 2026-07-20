@@ -39,13 +39,13 @@ fun CaptureScreen(
     onCaptionChange: (String) -> Unit,
     onToggleAudio: (Boolean) -> Unit,
     onUseLocation: (Boolean) -> Unit,
+    onLocationPermissionResult: (Boolean) -> Unit,
     onPhotoReady: (File) -> Unit,
     onSave: () -> Unit,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
     var photoFile by remember { mutableStateOf<File?>(null) }
-    var photoUri by remember { mutableStateOf<Uri?>(null) }
 
     val takePicture = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicture(),
@@ -65,14 +65,21 @@ fun CaptureScreen(
                 "${context.packageName}.fileprovider",
                 f,
             )
-            photoUri = uri
             takePicture.launch(uri)
         }
     }
 
     val micPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) { /* requested only when audio enabled */ }
+    ) { /* requested when audio enabled */ }
+
+    val locationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { result ->
+        val granted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        onLocationPermissionResult(granted)
+    }
 
     Scaffold(
         topBar = {
@@ -112,7 +119,18 @@ fun CaptureScreen(
                 if (it) micPermission.launch(Manifest.permission.RECORD_AUDIO)
                 onToggleAudio(it)
             }
-            RowSwitch("Attach location", state.useLocation, onUseLocation)
+            RowSwitch("Attach location", state.useLocation) { want ->
+                if (want && !state.locationPermissionGranted) {
+                    locationPermission.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
+                        ),
+                    )
+                }
+                onUseLocation(want)
+            }
+            Text("Location: ${state.locationStatus}")
             Spacer(Modifier.height(8.dp))
             Text(
                 "Private Mode is controlled in Privacy settings. " +

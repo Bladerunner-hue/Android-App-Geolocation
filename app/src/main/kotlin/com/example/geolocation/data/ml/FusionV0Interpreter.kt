@@ -22,6 +22,13 @@ import org.tensorflow.lite.Interpreter
 class FusionV0Interpreter @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
+    companion object {
+        const val ASSET_NAME = "fusion_v0.tflite"
+        val LABELS = arrayOf(
+            "serene", "energetic", "chaotic", "nostalgic", "tense", "social", "contemplative",
+        )
+    }
+
     sealed class Result {
         data class Ok(
             val vibeLabel: String,
@@ -32,10 +39,6 @@ class FusionV0Interpreter @Inject constructor(
 
         data class Unavailable(val reason: String) : Result()
     }
-
-    private val labels = arrayOf(
-        "serene", "energetic", "chaotic", "nostalgic", "tense", "social", "contemplative",
-    )
 
     private var interpreter: Interpreter? = null
     private var attempted = false
@@ -59,33 +62,23 @@ class FusionV0Interpreter @Inject constructor(
     ): Result {
         ensure()
         val interp = interpreter
-            ?: return Result.Unavailable(error ?: "fusion_v0.tflite not packaged")
+            ?: return Result.Unavailable(error ?: "$ASSET_NAME not packaged")
 
         require(imageEmbedding.size == 576)
         require(audioEmbedding.size == 1024)
         require(context12.size == 12)
         require(modalityMask.size == 3)
 
-        // Zero missing modalities
+        // Zero missing modalities (mask: photo, audio, time — time always 1)
         val img = imageEmbedding.copyOf()
         val aud = audioEmbedding.copyOf()
         if (modalityMask[0] == 0f) img.fill(0f)
         if (modalityMask[1] == 0f) aud.fill(0f)
 
         return try {
-            val inputs = arrayOf(
-                arrayOf(img),
-                arrayOf(aud),
-                arrayOf(context12),
-                arrayOf(modalityMask),
-            )
             val probs = Array(1) { FloatArray(7) }
             val perc = Array(1) { FloatArray(128) }
-            val outputs = hashMapOf<Int, Any>(
-                0 to probs,
-                1 to perc,
-            )
-            // Prefer signature API when model exported with signatures
+            // Prefer named signature outputs (never pick first dim-7 tensor by index).
             try {
                 val inMap = hashMapOf<String, Any>(
                     "image_embedding" to arrayOf(img),
@@ -99,6 +92,29 @@ class FusionV0Interpreter @Inject constructor(
                 )
                 interp.runSignature(inMap, outMap, "serving_default")
             } catch (_: Exception) {
+                val inputs = arrayOf(
+                    arrayOf(img),
+                    arrayOf(aud),
+                    arrayOf(context12),
+                    arrayOf(modalityMask),
+                )
+                // Fallback: map by tensor name when available
+                val outputs = LinkedHashMap<Int, Any>()
+                for (i in 0 until interp.outputTensorCount) {
+                    val name = interp.getOutputTensor(i).name() ?: ""
+                    when {
+                        name.contains("prob", ignoreCase = true) ||
+                            name.contains("vibe_prob", ignoreCase = true) ->
+                            outputs[i] = probs
+                        name.contains("perceptual", ignoreCase = true) ||
+                            name.contains("embedding", ignoreCase = true) ->
+                            outputs[i] = perc
+                    }
+                }
+                if (outputs.isEmpty()) {
+                    outputs[0] = probs
+                    outputs[1] = perc
+                }
                 interp.runForMultipleInputsOutputs(inputs, outputs)
             }
             var best = 0
@@ -106,7 +122,7 @@ class FusionV0Interpreter @Inject constructor(
                 if (probs[0][i] > probs[0][best]) best = i
             }
             Result.Ok(
-                vibeLabel = labels[best],
+                vibeLabel = LABELS[best],
                 vibeId = best,
                 probabilities = probs[0],
                 perceptual = perc[0],
@@ -119,16 +135,15 @@ class FusionV0Interpreter @Inject constructor(
     private fun ensure() {
         if (attempted) return
         attempted = true
-        val asset = "fusion_v0.tflite"
         try {
-            context.assets.open(asset).use { input ->
+            context.assets.open(ASSET_NAME).use { input ->
                 val bytes = input.readBytes()
                 val bb = ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder())
                 bb.put(bytes).rewind()
                 interpreter = Interpreter(bb)
             }
         } catch (e: Exception) {
-            error = "Asset $asset missing or unloadable (${e.message}). " +
+            error = "Asset $ASSET_NAME missing or unloadable (${e.message}). " +
                 "Package a trained export — no untrained model is committed."
             interpreter = null
         }

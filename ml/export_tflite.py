@@ -170,17 +170,34 @@ def export(
     ):
         interpreter.set_tensor(detail["index"], arr.astype(detail["dtype"]))
     interpreter.invoke()
+    # Prefer named outputs — never "first tensor with last dim 7" (logits vs probs).
     tflite_prob = None
+    tflite_perc = None
     for detail in interpreter.get_output_details():
+        name = (detail.get("name") or "").lower()
         t = interpreter.get_tensor(detail["index"])
-        if t.ndim >= 2 and t.shape[-1] == 7:
+        if "vibe_prob" in name or name.endswith("probabilities") or "probabilit" in name:
             tflite_prob = t
-            break
+        elif "perceptual" in name:
+            tflite_perc = t
+    if tflite_prob is None:
+        # Named lookup failed: pick output whose shape is [1,7] and values look like probs
+        for detail in interpreter.get_output_details():
+            t = interpreter.get_tensor(detail["index"])
+            if t.ndim >= 2 and t.shape[-1] == 7:
+                s = float(np.sum(t))
+                if 0.5 < s < 1.5:
+                    tflite_prob = t
+                    break
     mae = 0.0
     if tflite_prob is not None and quantization == "float32":
         mae = float(np.mean(np.abs(tflite_prob - ref_prob[:1])))
         if mae > max_prob_mae:
             raise RuntimeError(f"Parity MAE {mae} > {max_prob_mae}")
+        if not np.all(np.isfinite(tflite_prob)):
+            raise RuntimeError("vibe_probabilities contain non-finite values")
+        if tflite_perc is not None and tflite_perc.shape[-1] != 128:
+            raise RuntimeError(f"perceptual_embedding last dim {tflite_perc.shape[-1]} != 128")
 
     report = {
         "weights": str(weights),

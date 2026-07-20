@@ -6,8 +6,9 @@ import com.example.geolocation.data.local.dao.MemoryDao
 import com.example.geolocation.data.local.entity.MemoryEntity
 import com.example.geolocation.data.ml.AmbientAudioRecorder
 import com.example.geolocation.data.ml.ContextEncoderV1
-import com.example.geolocation.data.ml.FusionV0Interpreter
-import com.example.geolocation.data.ml.OnDeviceVibeAnalyzer
+import com.example.geolocation.data.ml.EdgeAnalysisResult
+import com.example.geolocation.data.ml.EdgeMemoryAnalyzer
+import com.example.geolocation.data.ml.MemoryAnalysisInput
 import com.example.geolocation.data.remote.api.MemoryApi
 import com.example.geolocation.data.remote.mapper.MemoryAnalyzeMapper
 import com.example.geolocation.util.SyncScheduler
@@ -28,8 +29,7 @@ import retrofit2.HttpException
 class MemoryRepository @Inject constructor(
     private val memoryDao: MemoryDao,
     private val privacy: PrivacyPreferences,
-    private val analyzer: OnDeviceVibeAnalyzer,
-    private val fusion: FusionV0Interpreter,
+    private val edgeAnalyzer: EdgeMemoryAnalyzer,
     private val audioRecorder: AmbientAudioRecorder,
     private val memoryApi: MemoryApi,
     private val syncScheduler: SyncScheduler,
@@ -62,15 +62,15 @@ class MemoryRepository @Inject constructor(
             utcOffsetMinutes = offsetMin,
             latitude = latitude,
             longitude = longitude,
+            // Never pass 0.0 as "unknown" — encoder treats null as missing accuracy.
             accuracyM = locationAccuracyM,
         )
-        val mask = floatArrayOf(
-            if (photoFile != null) 1f else 0f,
-            if (audioPath != null) 1f else 0f,
-            if (latitude != null && longitude != null) 1f else 0f,
+        // Canonical mask: [photo, audio, time=1]. Location is context12 feature 11 only.
+        val modalityMask = ContextEncoderV1.modalityMask(
+            photoPresent = photoFile != null,
+            audioPresent = audioPath != null,
         )
 
-        // Prefer FusionV0Interpreter contract; fall back to analyzer media path.
         var vibe: String? = null
         var conf: Float? = null
         var probs: FloatArray? = null
@@ -80,25 +80,34 @@ class MemoryRepository @Inject constructor(
         var analysisStatus = "unavailable"
         var lastError: String? = null
 
-        when (val fr = tryFusionOrAnalyzer(photoFile, audioPath, latitude != null)) {
-            is EdgeAnalysis.Available -> {
-                vibe = fr.vibeLabel
-                conf = fr.confidence
-                probs = fr.probs
-                perceptual = fr.perceptual
-                modelVersion = fr.modelVersion
+        when (
+            val edge = edgeAnalyzer.analyze(
+                MemoryAnalysisInput(
+                    photo = photoFile,
+                    audio = audioPath?.let { File(it) },
+                    hasLocation = latitude != null && longitude != null,
+                    context12 = context12,
+                    modalityMask = modalityMask,
+                ),
+            )
+        ) {
+            is EdgeAnalysisResult.Success -> {
+                vibe = edge.vibeLabel
+                conf = edge.confidence
+                probs = edge.probabilities
+                perceptual = edge.perceptualEmbedding
+                modelVersion = "${edge.model.modelId}@${edge.model.revision}"
                 analysisSource = "on_device"
                 analysisStatus = "on_device"
             }
-            is EdgeAnalysis.Unavailable -> {
-                lastError = fr.reason
-            }
+            is EdgeAnalysisResult.Unavailable -> lastError = edge.reason
+            is EdgeAnalysisResult.Failed -> lastError = "${edge.code}: ${edge.detail}"
         }
 
         val structured = MemoryAnalyzeMapper.buildStructuredEvidence(
             vibeProbs = probs,
             context12 = context12,
-            modalityMask = mask,
+            modalityMask = modalityMask,
             source = analysisSource,
         )
 
@@ -140,49 +149,8 @@ class MemoryRepository @Inject constructor(
         return saved
     }
 
-    private sealed class EdgeAnalysis {
-        data class Available(
-            val vibeLabel: String,
-            val confidence: Float,
-            val probs: FloatArray?,
-            val perceptual: FloatArray?,
-            val modelVersion: String?,
-        ) : EdgeAnalysis()
-
-        data class Unavailable(val reason: String) : EdgeAnalysis()
-    }
-
-    private fun tryFusionOrAnalyzer(
-        photo: File?,
-        audioPath: String?,
-        hasLocation: Boolean,
-    ): EdgeAnalysis {
-        // Full fusion needs precomputed embeddings; without extractors, stay honest.
-        if (fusion.isAvailable()) {
-            // Interpreter present but raw media path still needs MobileNet/YAMNet — unavailable.
-            return EdgeAnalysis.Unavailable(
-                fusion.unavailableReason()
-                    ?: "fusion_v0 packaged; edge embedding extractors not bundled",
-            )
-        }
-        return when (
-            val a = analyzer.analyzeMedia(
-                photo = photo,
-                audio = audioPath?.let { File(it) },
-                hasLocation = hasLocation,
-            )
-        ) {
-            is OnDeviceVibeAnalyzer.AnalysisResult.Available ->
-                EdgeAnalysis.Available(
-                    vibeLabel = a.vibeLabel,
-                    confidence = a.confidence,
-                    probs = a.probs,
-                    perceptual = null,
-                    modelVersion = "fusion_v0",
-                )
-            is OnDeviceVibeAnalyzer.AnalysisResult.Unavailable ->
-                EdgeAnalysis.Unavailable(a.reason)
-        }
+    suspend fun deleteLocal(id: Long) {
+        memoryDao.deleteById(id)
     }
 
     suspend fun syncOne(memory: MemoryEntity): Result<MemoryEntity> {
@@ -236,6 +204,19 @@ class MemoryRepository @Inject constructor(
         } catch (e: Exception) {
             val failed = memory.copy(syncStatus = "failed", lastSyncError = e.message)
             memoryDao.update(failed)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteRemoteIfSynced(memory: MemoryEntity): Result<Unit> {
+        val sid = memory.serverId ?: return Result.success(Unit)
+        if (tokenStore.currentToken().isNullOrBlank()) {
+            return Result.failure(IllegalStateException("Not signed in"))
+        }
+        return try {
+            memoryApi.delete(sid)
+            Result.success(Unit)
+        } catch (e: Exception) {
             Result.failure(e)
         }
     }

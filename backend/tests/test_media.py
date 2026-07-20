@@ -28,7 +28,9 @@ async def test_save_and_bound(tmp_path, monkeypatch):
         GEO_MAX_PHOTO_BYTES=50,
     )
     store = MediaStorage(settings)
-    small = UploadFile(filename="a.png", file=io.BytesIO(b"x" * 10))
+    # Valid PNG magic so sniff passes
+    png_hdr = b"\x89PNG\r\n\x1a\n" + b"x" * 8
+    small = UploadFile(filename="a.png", file=io.BytesIO(png_hdr))
     path, digest = await store.save_upload(
         1,
         small,
@@ -40,7 +42,7 @@ async def test_save_and_bound(tmp_path, monkeypatch):
     assert digest is not None
     assert (tmp_path / path).exists()
 
-    big = UploadFile(filename="b.png", file=io.BytesIO(b"y" * 100))
+    big = UploadFile(filename="b.png", file=io.BytesIO(b"\x89PNG\r\n\x1a\n" + b"y" * 100))
     with pytest.raises(Exception):
         await store.save_upload(
             1,
@@ -62,3 +64,5 @@ def test_hash_embed_stable():
     assert a != c
     assert len(a) == TEXT_EMBED_DIM == 768
     assert abs(sum(x * x for x in a) - 1.0) < 1e-6
+    # Must not depend on PYTHONHASHSEED / builtin hash()
+    assert a[0] == b[0]

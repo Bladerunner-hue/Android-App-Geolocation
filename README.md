@@ -48,15 +48,18 @@ python -m ml.train_fusion_v0 \
 
 ## Android
 
-Source lives under `app/src/{main,test,androidTest}/kotlin/…` (Kotlin roots;
-legacy `java/…/school` template trees were removed).
+**GeoJournal** (subtitle: GeoAI Companion). Source under
+`app/src/{main,test,androidTest}/kotlin/…`.
 
-- **Continue free offline** on the login screen — no backend credentials required
-- Private Mode default **on**
-- Capture → Room first
-- Train Mode (tap a journal memory) → `memory_training_labels`
-- `ContextEncoderV1` / `FusionV0Interpreter` for on-device path
-- WorkManager sync only when explicitly enabled (and signed in)
+Vertical slice (priority): **camera → Room → optional sync → PostgreSQL → search → delete**.
+
+- **Continue free offline** on login — no backend credentials required
+- Private Mode default **on**; cloud sync / enrichment separate opt-ins
+- Capture: camera + optional audio/location (permissions + FileProvider)
+- `ContextEncoderV1.modalityMask(photo, audio)` — mask is **not** location
+- `EdgeMemoryAnalyzer` / `fusion_v0.tflite` (honest unavailable without extractors)
+- Train Mode labels before model reveal
+- WorkManager outbox when cloud sync + JWT
 
 ### API base URL (credentials / endpoints)
 

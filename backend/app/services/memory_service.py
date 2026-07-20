@@ -9,6 +9,7 @@ Rules:
 
 from __future__ import annotations
 
+import hashlib
 import math
 import re
 from datetime import datetime
@@ -41,20 +42,24 @@ def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
     return dot / (na * nb)
 
 
-def _hash_embed_text(text: str, dim: int = TEXT_EMBED_DIM) -> List[float]:
-    """Deterministic bag-of-words hash embedding (placeholder).
+def _stable_token_bucket(tok: str, dim: int) -> int:
+    """Process-stable bucket (unlike Python's randomized hash())."""
+    digest = hashlib.blake2b(tok.encode("utf-8"), digest_size=8).digest()
+    return int.from_bytes(digest, "big") % dim
 
-    Dimension matches production text space (768) so schema/search code paths stay
-    aligned. This is **not** the multilingual encoder — replace when a real
-    768-D model is registered. Do not treat scores as quality metrics.
+
+def _hash_embed_text(text: str, dim: int = TEXT_EMBED_DIM) -> List[float]:
+    """Deterministic bag-of-words placeholder embedding (NOT production semantic).
+
+    Uses blake2b so vectors remain compatible across process restarts.
+    Do not label search results as ``semantic`` while this is in use.
     """
     vec = [0.0] * dim
     tokens = re.findall(r"[a-z0-9]+", text.lower())
     if not tokens:
         return vec
     for tok in tokens:
-        h = hash(tok) % dim
-        vec[h] += 1.0
+        vec[_stable_token_bucket(tok, dim)] += 1.0
     norm = math.sqrt(sum(v * v for v in vec)) or 1.0
     return [v / norm for v in vec]
 
@@ -216,30 +221,24 @@ class MemoryService:
             raise HTTPException(status_code=404, detail="Memory not found")
         return memory_to_response(mem)
 
+    def delete_memory(self, user: User, memory_id: int) -> None:
+        """Hard-delete owned memory and media files (privacy-first journal)."""
+        mem = self.db.get(Memory, memory_id)
+        if mem is None or mem.user_id != user.id:
+            raise HTTPException(status_code=404, detail="Memory not found")
+        self.media.delete_relative(mem.photo_path)
+        self.media.delete_relative(mem.audio_path)
+        self.db.delete(mem)
+        self.db.commit()
+
     def search(self, user: User, q: str, limit: int = 20) -> Tuple[str, List[MemoryResponse]]:
+        """Primary path: SQL lexical search. Hash-vector ranking is labeled
+        ``lexical_placeholder`` — never ``semantic`` until a real 768 encoder exists.
+        """
         q = (q or "").strip()
         if not q:
             raise HTTPException(status_code=400, detail="Query q is required")
         limit = max(1, min(limit, 50))
-        rows = list(
-            self.db.scalars(
-                select(Memory)
-                .where(Memory.user_id == user.id)
-                .order_by(Memory.captured_at.desc())
-            )
-        )
-        # Prefer "semantic" path when embeddings exist (placeholder hash today).
-        with_emb = [m for m in rows if m.text_embedding]
-        if with_emb:
-            qv = _hash_embed_text(q)
-            scored = sorted(
-                ((_cosine(qv, m.text_embedding or []), m) for m in with_emb),
-                key=lambda t: t[0],
-                reverse=True,
-            )
-            top = [memory_to_response(m) for s, m in scored[:limit] if s > 0]
-            if top:
-                return "semantic", top
 
         like = f"%{q.lower()}%"
         lex = list(
@@ -256,7 +255,30 @@ class MemoryService:
                 .limit(limit)
             )
         )
-        return "lexical", [memory_to_response(m) for m in lex]
+        if lex:
+            return "lexical", [memory_to_response(m) for m in lex]
+
+        # Fallback ranking only when lexical misses and stored placeholder vectors exist.
+        rows = list(
+            self.db.scalars(
+                select(Memory)
+                .where(Memory.user_id == user.id)
+                .order_by(Memory.captured_at.desc())
+            )
+        )
+        with_emb = [m for m in rows if m.text_embedding]
+        if with_emb:
+            qv = _hash_embed_text(q)
+            scored = sorted(
+                ((_cosine(qv, m.text_embedding or []), m) for m in with_emb),
+                key=lambda t: t[0],
+                reverse=True,
+            )
+            top = [memory_to_response(m) for s, m in scored[:limit] if s > 0]
+            if top:
+                return "lexical_placeholder", top
+
+        return "lexical", []
 
     def vibe_profile(self, user: User) -> Dict[str, Any]:
         """Fast SQL aggregate only — never launches Spark."""

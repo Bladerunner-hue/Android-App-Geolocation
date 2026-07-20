@@ -3,6 +3,25 @@
 Living status of the production ML path. Update when environment, data, or
 pipeline gates change.
 
+## Feedback integrated (2026-07-20)
+
+Vertical-slice priority over Gemini Nano / Kalman / AR:
+
+| Item | Status |
+|------|--------|
+| WorkManager + Hilt-Work + TFLite Gradle deps | Done |
+| CAMERA / RECORD_AUDIO + FileProvider | Done |
+| Capture location permission state + accuracy passthrough | Done |
+| modality_mask = [photo, audio, time] via `ContextEncoderV1.modalityMask` | Done |
+| Single `EdgeMemoryAnalyzer` (fusion_v0 asset name) | Done |
+| Search mode never claims `semantic` (lexical / lexical_placeholder) | Done |
+| Stable text-hash (blake2b), not Python `hash()` | Done |
+| Media stream + size bound + magic sniff | Done |
+| `DELETE /api/memories/{id}` | Done |
+| CI: backend pytest + assembleDebug | Done |
+| Real pgvector SQL + PostGIS | Deferred (schema ready; app still JSON/SQLite-friendly) |
+| CameraX rewrite | Deferred until capture path is green end-to-end |
+
 ## Confirmed (this machine)
 
 | Item | Status |

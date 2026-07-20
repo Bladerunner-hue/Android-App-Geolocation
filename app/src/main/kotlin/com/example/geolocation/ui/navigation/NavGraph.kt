@@ -135,6 +135,7 @@ fun NavGraph(navController: NavHostController) {
                 onCaptionChange = viewModel::onCaptionChange,
                 onToggleAudio = viewModel::onToggleAudio,
                 onUseLocation = viewModel::onUseLocation,
+                onLocationPermissionResult = viewModel::onLocationPermissionResult,
                 onPhotoReady = viewModel::onPhotoReady,
                 onSave = viewModel::save,
                 onBack = { navController.popBackStack() },
