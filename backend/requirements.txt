@@ -9,3 +9,6 @@ pydantic[email]>=2.11.0
 pydantic-settings>=2.5.2
 python-multipart>=0.0.9
 psycopg2-binary>=2.9.9
+# Optional: real semantic search (E5-large-instruct → vector 1024)
+# sentence-transformers>=3.0.0
+# pgvector>=0.3.0
