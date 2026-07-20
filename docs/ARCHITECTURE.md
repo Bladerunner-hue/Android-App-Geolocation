@@ -39,7 +39,9 @@ Photo + optional 10s mono 16 kHz WAV + optional location
 | Path | Status |
 |------|--------|
 | `ml/fusion_v0.py` + frozen MobileNet/YAMNet | **Production** |
-| `moe_kickstart.py` / `ml/train.py` synthetic | Experiment only |
+| `python -m ml.train_fusion_v0` | **Sole train entry** |
+| `ml/notebooks/validate_fusion_live.py` | marimo prep/validate only |
+| `ml/experiments/*` (MoE, synthetic bootstrap, vibe_fusion) | Experiment only |
 
 ## Context contract
 

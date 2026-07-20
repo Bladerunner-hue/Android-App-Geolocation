@@ -28,8 +28,10 @@ from ml.config import (  # noqa: E402
     N_MELS,
     NUM_COT_SLOTS,
     SCHEMA_VERSION,
+    feature_spec,
 )
-from ml.synthetic_bootstrap import FEATURE_SPEC  # noqa: E402
+
+FEATURE_SPEC = feature_spec()
 
 
 def load_manifest(path: Path) -> Dict[str, Any]:

@@ -120,7 +120,7 @@ def test_sound_bootstrap_esc10_filter(tmp_path):
         "1-100032-A-0.wav,1,0,dog,True,x,A\n"
         "1-100038-A-14.wav,1,14,chirping_birds,False,y,A\n"
     )
-    from ml.sound_bootstrap import load_esc10_rows
+    from ml.experiments.sound_bootstrap import load_esc10_rows
 
     rows = load_esc10_rows(tmp_path)
     assert len(rows) == 1

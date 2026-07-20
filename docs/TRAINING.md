@@ -1,6 +1,11 @@
-# How to Train GeoAI MoE (Minimal Data)
+# Experimental MoE path (not production)
 
-**Goal:** functional multimodal vibe model in days, not months, without tens of thousands of labels.
+> **Production train entry:** [`TRAINING_FUSION_V0.md`](TRAINING_FUSION_V0.md)  
+> (`python -m ml.train_fusion_v0` only.)
+>
+> Code for this document lives under `ml/experiments/` after the production prune.
+
+**Goal (experiment only):** functional multimodal MoE smoke in days without tens of thousands of labels.
 
 ## Why this works with little data
 
@@ -20,23 +25,23 @@
 ```bash
 cd interviews/Android-App-Geolocation
 
-# 1) Synthetic TFRecords (200 train / 40 val) — class-correlated so learning is real
-python -m ml.synthetic_bootstrap
+# 1) Synthetic TFRecords (200 train / 40 val) — CI smoke only, never release weights
+python -m ml.experiments.synthetic_bootstrap
 
-# 2) Train (use --cpu if cuDNN/driver is broken)
-CUDA_VISIBLE_DEVICES="" python -m ml.train --cpu --epochs 8 --batch-size 8 --export
+# 2) Train experimental MoE (use --cpu if cuDNN/driver is broken)
+CUDA_VISIBLE_DEVICES="" python -m ml.experiments.train_moe_legacy --cpu --epochs 8 --batch-size 8 --export
 
-# 3) Hybrid serve: MoE → Ollama → Grok → rules
+# 3) Hybrid serve: experimental MoE → Ollama → Grok → rules
 python -m ml.serve_fallback
 
-# 4) Optional: on-device export
-python -m ml.export_tflite
+# Production TFLite export uses fusion_v0 weights:
+# python -m ml.export_tflite --weights ... --parity-data ...
 ```
 
-Smoke-test the model only:
+Smoke-test the experimental model only:
 
 ```bash
-CUDA_VISIBLE_DEVICES="" python moe_kickstart.py
+CUDA_VISIBLE_DEVICES="" python ml/experiments/moe_kickstart.py
 # → SMOKE OK
 ```
 
@@ -55,7 +60,7 @@ python backend/jobs/pyspark_export_gold.py
 5. Point training at your manifests:
 
 ```bash
-python -m ml.train \
+python -m ml.experiments.train_moe_legacy \
   --train-manifest path/to/manifest_train.json \
   --val-manifest path/to/manifest_val.json \
   --epochs 12 --export
@@ -110,7 +115,7 @@ When you have preference pairs (Grok/Ollama synthetic CoT “better/worse” jou
 
 ## Checklist
 
-- [ ] `python moe_kickstart.py` → SMOKE OK  
+- [ ] `python ml/experiments/moe_kickstart.py` → SMOKE OK  
 - [ ] Synthetic bootstrap + 1 epoch train completes  
 - [ ] Val accuracy rises above chance (~0.14 for 7 classes) on correlated synth  
 - [ ] SavedModel export loads in `serve_fallback`  
@@ -122,10 +127,10 @@ When you have preference pairs (Grok/Ollama synthetic CoT “better/worse” jou
 
 | Path | Role |
 |------|------|
-| `moe_kickstart.py` | Model, losses, grad-accum trainer |
-| `ml/synthetic_bootstrap.py` | Day-1 TFRecords + manifest |
+| `ml/experiments/moe_kickstart.py` | Model, losses, grad-accum trainer |
+| `ml/experiments/synthetic_bootstrap.py` | Day-1 TFRecords + manifest (smoke only) |
 | `ml/tf_data_pipeline.py` | Parse + augment + prefetch |
-| `ml/train.py` | Training loop + SavedModel export |
+| `ml/experiments/train_moe_legacy.py` | Experimental training loop + SavedModel export |
 | `ml/export_tflite.py` | INT8 edge export |
 | `ml/serve_fallback.py` | MoE / Ollama / Grok / rules |
 | `backend/jobs/pyspark_export_gold.py` | Medallion Gold + weights |

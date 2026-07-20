@@ -74,7 +74,7 @@ python -m ml.train_fusion_v0 \
 7. **Export gates:** trained weights required; float32 TFLite first; INT8 only with real representative NPZ + parity; held-out metrics beyond numerical parity.
 8. **Local A5000 default** for feature extract + head train; HF Jobs only after branch/image publish; no paid Jobs launched yet from this log.
 9. **HF private only:** deidentified embeddings/labels/provenance — never raw media, GPS precision, Room DBs, tokens.
-10. **`ml/train.py` / synthetic MoE** = experiment only, not release.
+10. **`ml/experiments/*` (MoE / synthetic bootstrap)** = experiment only, not release.
 
 ## Still open (gates)
 

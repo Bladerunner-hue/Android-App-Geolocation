@@ -17,7 +17,7 @@ The modernized Kotlin/Compose geolocation app needs a portfolio-grade AI Memory 
 
 ## Decision
 
-1. **Model**: Keras `GeoAIMoE` (`moe_kickstart.py`) — EfficientNet-B0 (frozen) + log-mel CNN + geo Fourier features → pre-norm MultiHeadAttention + sparse top-k MoE FFN → multi-task heads (`vibe_logits`, `cot_logits`, `insight_embedding`).
+1. **Model (experimental)**: Keras `GeoAIMoE` (`ml/experiments/moe_kickstart.py`) — EfficientNet-B0 (frozen) + log-mel CNN + geo Fourier features → pre-norm MultiHeadAttention + sparse top-k MoE FFN → multi-task heads. **Production path is dense fusion_v0 (ADR-003).**
 2. **Small-data recipe**: transfer learning + LoRA on dense/experts + heavy `tf.data` augmentation + manifest inverse-sqrt class weights + gradient accumulation + mixed precision.
 3. **Data plane**: Bronze → Silver → Gold (PySpark preferred; pure-Python stub for day-1) → TFRecords + `manifest.json` (schema version, shards, SHA-256, class counts). Synthetic bootstrap for CI and first train.
 4. **Serving**: SavedModel (backend) + INT8 TFLite (Android). Fallback chain: MoE → Ollama → Grok API → deterministic rules.
@@ -31,6 +31,6 @@ The modernized Kotlin/Compose geolocation app needs a portfolio-grade AI Memory 
 
 ## Related
 
-- `moe_kickstart.py`, `ml/train.py`, `ml/serve_fallback.py`
+- `ml/experiments/moe_kickstart.py`, `ml/experiments/train_moe_legacy.py`, `ml/serve_fallback.py`
 - `backend/jobs/pyspark_export_gold.py`
 - ADR-003 (hybrid inference & privacy) — planned

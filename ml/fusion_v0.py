@@ -11,7 +11,7 @@ Mask → [3]  (photo, audio, time=always 1)
   → L2 perceptual embedding [128]
 
 No CoT, no KV-cache, no sparse MoE.
-Experimental MoE lives in moe_kickstart.py / ml/experiments/.
+Experimental MoE lives under ml/experiments/ (moe_kickstart.py).
 """
 
 from __future__ import annotations

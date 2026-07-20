@@ -13,20 +13,21 @@ MobileNetV3Small [576] + YAMNet [1024] + context12 [12] + mask [3]
 
 | Do | Do not |
 |----|--------|
-| `python -m ml.train_fusion_v0` | `python -m ml.train` (experimental MoE) |
-| Human Train Mode labels | Fabricate vibes from ESC/FSD |
+| `python -m ml.train_fusion_v0` | Anything under `ml/experiments/` for release |
+| Human Train Mode labels (`consent_for_training`) | Fabricate vibes from ESC/FSD/Places |
 | Frozen YAMNet + MobileNet | Untrained weights in git |
 | Session-grouped temporal splits | Random i.i.d. photo splits |
+| marimo for validation / prep only | Train loop inside marimo for release |
 
-Docs: [docs/CONFIRMATION.md](docs/CONFIRMATION.md) (status + feedback) ·
+Docs: [docs/CONFIRMATION.md](docs/CONFIRMATION.md) ·
 [docs/TRAINING_FUSION_V0.md](docs/TRAINING_FUSION_V0.md) ·
-[docs/DATASETS.md](docs/DATASETS.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+[docs/DATASETS.md](docs/DATASETS.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) ·
+[ml/experiments/README.md](ml/experiments/README.md)
 
-**Next data plane:** PySpark medallion → NPZ/manifest (TF stays in pyenv).
+**Data plane:** Kotlin Bronze → PySpark Gold → NPZ/manifest → train → TFLite
+(TF stays in pyenv; Spark never runs the fusion head).
 
 ### Quick wiring (synthetic features only)
-
-Uses your current pyenv TensorFlow (GPU if available):
 
 ```bash
 python -m ml.make_wiring_fixture
@@ -39,12 +40,20 @@ python -m ml.train_fusion_v0 \
 
 ### Real training (local A5000)
 
-1. Collect Train Mode labels (label **before** model reveal).
-2. `python -m ml.prepare_fusion_dataset --input … --out-dir /secure/…`
-3. `python -m ml.validate_fusion_dataset --manifest …/manifest.json`
-4. `python -m ml.train_fusion_v0 --manifest … --weights-out … --seed 42`
-5. `python -m ml.export_tflite --weights … --parity-data … --quantization float32 …`
-6. Package `fusion_v0.tflite` as Android asset (not committed empty).
+1. Collect Train Mode labels (label **before** model reveal; consent only).
+2. Optional: `backend/jobs/pyspark_export_gold.py` on Bronze JSONL.
+3. `python -m ml.prepare_fusion_dataset --input … --out-dir /secure/…`
+4. `python -m ml.validate_fusion_dataset --manifest …/manifest.json`
+5. `python -m ml.train_fusion_v0 --manifest … --weights-out … --seed 42`
+6. `python -m ml.export_tflite --weights … --parity-data … --quantization float32 …`
+7. Package `fusion_v0.tflite` as Android asset (not committed empty).
+
+### Data exploration (marimo)
+
+```bash
+pip install marimo polars   # optional
+marimo edit ml/notebooks/validate_fusion_live.py
+```
 
 ## Android
 
@@ -106,6 +115,8 @@ GEO_TEST_MODE=1 JWT_SECRET=test-only-jwt-secret-not-for-production \
 - ESC-10: sound pipeline benchmark (CC BY)
 - ESC-50 full: noncommercial research only
 - FSD50K: start with CC0 for event heads — never as vibe truth
+- Places/OpenImages: vision bootstrap only — never as 7-class vibe labels
+- Full policy: [docs/DATASETS.md](docs/DATASETS.md)
 
 ## License / privacy
 

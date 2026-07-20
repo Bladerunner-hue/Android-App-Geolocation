@@ -6,3 +6,6 @@ soundfile>=0.12
 scipy>=1.11
 # Optional Hub uploads (never hardcode tokens)
 huggingface-hub>=0.23
+# Optional: exploration notebooks (not production train)
+# marimo>=0.9
+# polars>=1.0

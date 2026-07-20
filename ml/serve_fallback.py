@@ -80,16 +80,16 @@ class GeoAIServing:
             self._fn = model.signatures.get("serving_default") or model.serving_default
             print(f"Loaded SavedModel from {savedmodel_dir}")
         elif prefer_moe and _HAS_TF:
-            # In-process untrained/weights model for smoke tests
+            # Optional experimental MoE (not production fusion_v0).
             try:
-                from moe_kickstart import build_geoai_moe, setup_runtime
+                from ml.experiments.moe_kickstart import build_geoai_moe, setup_runtime
 
                 setup_runtime(mixed_precision=False)
                 self._model = build_geoai_moe(hidden=128, num_blocks=1)
                 self._fn = "inprocess"
-                print("Using in-process GeoAIMoE (load weights for real inference)")
+                print("Using in-process experimental GeoAIMoE (not fusion_v0)")
             except Exception as e:
-                print(f"MoE unavailable: {e}")
+                print(f"Experimental MoE unavailable (OK for production spine): {e}")
                 self._model = None
         else:
             self._model = None

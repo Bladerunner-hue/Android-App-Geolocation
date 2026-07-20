@@ -21,11 +21,18 @@ secrets/*
 # ML artifacts (never commit weights, TFRecords, media)
 ml/artifacts/
 ml/checkpoints/
+ml/saved_models/
+ml/exports/
 ml/data_sample/fusion_wiring/
 ml/data_sample/tfrecords/
 ml/**/__pycache__/
+ml/**/*.pyc
 *.weights.h5
 *.tflite
+*.h5
+# temporary train history (keep intentional manifests only)
+ml/**/history.json
+!ml/data_sample/**/manifest*.json
 backend/media_store/
 backend/geojournal.db
 .venv*/
@@ -37,3 +44,6 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+# marimo
+__marimo__/
+.marimo/
