@@ -60,9 +60,18 @@ Always:
 ### Optional MoE upgrade (same I/O)
 
 Keep inputs/outputs identical. Replace middle FFN with top-k sparse MoE
-(k=1–2, ≤8 experts) + load-balancing loss. Train from dense weights + LoRA.
-Export still one TFLite the existing Kotlin interpreter can load. Code lives
-under `ml/experiments/` until explicitly promoted.
+(k=1–2, ≤8 experts) + load-balancing loss. Train from dense weights when possible.
+Export still one TFLite the existing Kotlin interpreter can load
+(`export_tflite --architecture moe`).
+
+```bash
+python -m ml.experiments.train_moe_v0 \
+  --manifest …/manifest.json \
+  --weights-out …/fusion-moe-v0.weights.h5 \
+  --init-from-dense …/fusion-v0.weights.h5
+```
+
+Code: `ml/experiments/{fusion_moe_v0,sparse_moe,train_moe_v0}.py` — never the default import.
 
 ## Local environment
 

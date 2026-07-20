@@ -77,8 +77,10 @@ On-device export: `ml/export_tflite.py` (+ encoder export when present).
 
 | Encoder | Dim | Notes |
 |---------|-----|--------|
-| E5 / multilingual mpnet (serving path) | 1024 or 768 | Store in `semantic_embedding` / text column |
+| E5 large (`ml/semantic_e5.py` → HTTP :6100) | **1024** | Production text search; `VECTOR(1024)` |
 | fusion perceptual | 128 | L2-normalized; **do not pad into text column** |
+
+On-device encoder export (when TF ready): `python -m ml.export_encoders_tflite --out-dir app/src/main/assets`.
 
 ## 5. AI-assisted data (allowed, gated)
 

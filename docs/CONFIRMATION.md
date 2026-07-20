@@ -32,7 +32,7 @@ Vertical-slice priority over Gemini Nano / Kalman / AR:
 | `ml/export_encoders_tflite.py` | Done — MobileNet (+ YAMNet if hub available) |
 | `insightEmbeddingJson` Room v5 | Done |
 | Journal uses `EdgeMemoryAnalyzer` | Done |
-| Sparse MoE optional path (`fusion_moe_v0`, same I/O) | Done — not default release |
+| Sparse MoE optional path (`ml/experiments/fusion_moe_v0`, same I/O) | Done — not default release |
 | Emulator GeoJournal AVD + assembleDebug + install | Verified 2026-07-20 |
 
 ## Confirmed (this machine)

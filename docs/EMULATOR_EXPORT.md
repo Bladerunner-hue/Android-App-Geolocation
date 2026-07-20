@@ -50,7 +50,7 @@ psql "$GEO_DATABASE_URL" -f backend/migrations/004_text_embedding_1024.sql
 Dense `fusion_v0` remains the **release baseline**. MoE is opt-in:
 
 ```bash
-python -m ml.train_moe_v0 \
+python -m ml.experiments.train_moe_v0 \
   --manifest /secure/fusion_data/manifest.json \
   --weights-out ml/artifacts/fusion-moe-v0.weights.h5 \
   --num-experts 4 --top-k 2 --epochs 40 --seed 42

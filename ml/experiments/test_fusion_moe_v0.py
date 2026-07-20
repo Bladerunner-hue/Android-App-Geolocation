@@ -9,7 +9,7 @@ tf = pytest.importorskip("tensorflow")
 
 
 def test_build_and_forward():
-    from ml.fusion_moe_v0 import build_fusion_moe_v0
+    from ml.experiments.fusion_moe_v0 import build_fusion_moe_v0
     from ml.fusion_v0 import dummy_batch
 
     m = build_fusion_moe_v0(num_experts=4, top_k=2)
@@ -26,7 +26,7 @@ def test_build_and_forward():
 
 
 def test_same_input_names_as_dense():
-    from ml.fusion_moe_v0 import build_fusion_moe_v0
+    from ml.experiments.fusion_moe_v0 import build_fusion_moe_v0
     from ml.fusion_v0 import build_fusion_v0, dummy_batch
 
     d = build_fusion_v0()
@@ -40,7 +40,7 @@ def test_same_input_names_as_dense():
 
 
 def test_training_step_runs():
-    from ml.fusion_moe_v0 import build_fusion_moe_v0
+    from ml.experiments.fusion_moe_v0 import build_fusion_moe_v0
     from ml.fusion_v0 import dummy_batch
 
     m = build_fusion_moe_v0(num_experts=4, top_k=1)

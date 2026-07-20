@@ -1,7 +1,7 @@
 """
 Train fusion_moe_v0 on the same NPZ/manifest as fusion_v0.
 
-  python -m ml.train_moe_v0 \\
+  python -m ml.experiments.train_moe_v0 \\
     --manifest path/to/manifest.json \\
     --weights-out ml/artifacts/fusion-moe-v0.weights.h5 \\
     --epochs 30 --batch-size 32 --seed 42
@@ -18,7 +18,7 @@ from pathlib import Path
 
 import numpy as np
 
-_ROOT = Path(__file__).resolve().parents[1]
+_ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
@@ -55,7 +55,7 @@ def main() -> None:
     import tensorflow as tf
     from tensorflow import keras
 
-    from ml.fusion_moe_v0 import build_fusion_moe_v0
+    from ml.experiments.fusion_moe_v0 import build_fusion_moe_v0
     from ml.fusion_v0 import count_trainable_params
     from ml.train_fusion_v0 import load_npz, make_dataset
 

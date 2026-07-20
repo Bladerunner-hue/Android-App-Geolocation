@@ -73,7 +73,7 @@ def export(
         raise FileExistsError(f"Refusing overwrite {savedmodel_dir} (use --force)")
 
     if architecture == "moe":
-        from ml.fusion_moe_v0 import build_fusion_moe_v0
+        from ml.experiments.fusion_moe_v0 import build_fusion_moe_v0
 
         model = build_fusion_moe_v0()
     else:

@@ -28,7 +28,7 @@ from ml.fusion_v0 import (
     dummy_batch,
     modality_dropout,
 )
-from ml.sparse_moe import SparseMoEBlock
+from ml.experiments.sparse_moe import SparseMoEBlock
 
 DEFAULT_HIDDEN = 128
 DEFAULT_EXPERTS = 4
