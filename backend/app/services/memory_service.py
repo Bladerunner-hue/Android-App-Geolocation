@@ -181,12 +181,13 @@ class MemoryService:
         }
 
         content_sha = photo_sha or audio_sha
-        text_blob = " ".join(
-            filter(None, [meta.caption, vibe, f"{meta.latitude},{meta.longitude}"])
-        )
-        # Placeholder hash (1024-D to match E5 width). Prefer memory_semantic_embeddings
-        # filled by GEO_E5_BASE_URL backfill — do not treat as real semantic quality.
-        text_emb = _hash_embed_text(text_blob) if text_blob.strip() else None
+        # NOTE: Postgres columns are pgvector types; SQLAlchemy JSON mapping cannot
+        # bind Python lists into vector(N). Store tensors only in structured_evidence
+        # (and memory_semantic_embeddings via E5 backfill). Keep vector cols NULL here.
+        if meta.perceptual_embedding is not None:
+            structured["perceptual_embedding"] = meta.perceptual_embedding
+        if meta.insight_embedding is not None:
+            structured["insight_embedding"] = meta.insight_embedding
 
         mem = Memory(
             user_id=user.id,
@@ -203,9 +204,9 @@ class MemoryService:
             private_mode=False,
             photo_path=photo_path,
             audio_path=audio_path,
-            perceptual_embedding=meta.perceptual_embedding,
-            insight_embedding=meta.insight_embedding,
-            text_embedding=text_emb,
+            perceptual_embedding=None,
+            insight_embedding=None,
+            text_embedding=None,
             evidence_json=evidence,
             structured_evidence=structured or None,
             enrichment_requested=enrichment_requested,

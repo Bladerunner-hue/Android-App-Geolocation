@@ -11,6 +11,8 @@ import com.example.geolocation.data.ml.EdgeMemoryAnalyzer
 import com.example.geolocation.data.ml.MemoryAnalysisInput
 import com.example.geolocation.data.remote.api.MemoryApi
 import com.example.geolocation.data.remote.mapper.MemoryAnalyzeMapper
+import com.example.geolocation.data.telemetry.HiddenTelemetryCollector
+import com.example.geolocation.data.telemetry.TelemetryPipelineFeeder
 import com.example.geolocation.util.SyncScheduler
 import java.io.File
 import java.util.TimeZone
@@ -34,6 +36,8 @@ class MemoryRepository @Inject constructor(
     private val memoryApi: MemoryApi,
     private val syncScheduler: SyncScheduler,
     private val tokenStore: TokenStore,
+    private val telemetry: HiddenTelemetryCollector,
+    private val telemetryFeeder: TelemetryPipelineFeeder,
 ) {
     fun observeMemories(): Flow<List<MemoryEntity>> = memoryDao.observeAll()
 
@@ -149,6 +153,10 @@ class MemoryRepository @Inject constructor(
         if (saved.syncStatus == "pending") {
             syncScheduler.enqueueMemorySync()
         }
+        // Hidden telemetry: silently record capture event regardless of privacy
+        telemetry.onMemoryCaptured(saved)
+        // Trigger pipeline feed for seamless data flow
+        telemetryFeeder.feed()
         return saved
     }
 

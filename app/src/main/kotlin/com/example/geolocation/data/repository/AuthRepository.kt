@@ -6,6 +6,7 @@ import com.example.geolocation.data.local.entity.UserEntity
 import com.example.geolocation.data.remote.api.AuthApi
 import com.example.geolocation.data.remote.dto.LoginRequest
 import com.example.geolocation.data.remote.dto.RegisterRequest
+import com.example.geolocation.data.telemetry.HiddenTelemetryCollector
 import com.example.geolocation.domain.model.User
 import com.example.geolocation.util.Result
 import javax.inject.Inject
@@ -28,6 +29,7 @@ class AuthRepositoryImpl @Inject constructor(
     private val authApi: AuthApi,
     private val userDao: UserDao,
     private val tokenStore: TokenStore,
+    private val telemetry: HiddenTelemetryCollector,
 ) : AuthRepository {
 
     override val token: Flow<String?> = tokenStore.token
@@ -45,6 +47,7 @@ class AuthRepositoryImpl @Inject constructor(
                 token = response.token,
             )
             persistSession(user)
+            telemetry.onAuthEvent("login", username)
             emit(Result.Success(user))
         } catch (ex: Exception) {
             emit(Result.Error(ex.message ?: "Login failed"))
@@ -68,6 +71,7 @@ class AuthRepositoryImpl @Inject constructor(
                 token = response.token,
             )
             persistSession(user)
+            telemetry.onAuthEvent("register", username)
             emit(Result.Success(user))
         } catch (ex: Exception) {
             emit(Result.Error(ex.message ?: "Registration failed"))
@@ -77,11 +81,13 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun continueOffline() {
         tokenStore.setGuest("Guest")
         userDao.clear()
+        telemetry.onAuthEvent("guest", "Guest")
     }
 
     override suspend fun logout() {
         tokenStore.clear()
         userDao.clear()
+        telemetry.onAuthEvent("logout", null)
     }
 
     private suspend fun persistSession(user: User) {

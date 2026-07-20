@@ -26,11 +26,45 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
+    TypeDecorator,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.database import Base
+
+try:
+    from pgvector.sqlalchemy import Vector as PgVector
+except ImportError:  # pragma: no cover
+    PgVector = None  # type: ignore[misc, assignment]
+
+
+class EmbeddingVector(TypeDecorator):
+    """JSON list on SQLite (tests); pgvector on PostgreSQL (production)."""
+
+    impl = JSON
+    cache_ok = True
+
+    def __init__(self, dim: int):
+        super().__init__()
+        self.dim = dim
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql" and PgVector is not None:
+            return dialect.type_descriptor(PgVector(self.dim))
+        return dialect.type_descriptor(JSON())
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if dialect.name == "postgresql":
+            return list(value)
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return list(value)
 
 # Must match Kotlin Train Mode + fusion_v0 head. Never invent labels outside this set.
 VIBE_LABELS = (
@@ -94,10 +128,16 @@ class Memory(Base):
     photo_path: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     audio_path: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 
-    # Separate embedding spaces (JSON list in SQLite; vector(N) in Postgres migrations)
-    perceptual_embedding: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
-    text_embedding: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
-    insight_embedding: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
+    # Separate embedding spaces (JSON on SQLite; pgvector on Postgres)
+    perceptual_embedding: Mapped[Optional[Any]] = mapped_column(
+        EmbeddingVector(PERCEPTUAL_DIM), nullable=True
+    )
+    text_embedding: Mapped[Optional[Any]] = mapped_column(
+        EmbeddingVector(TEXT_EMBED_DIM), nullable=True
+    )
+    insight_embedding: Mapped[Optional[Any]] = mapped_column(
+        EmbeddingVector(INSIGHT_DIM), nullable=True
+    )
 
     model_version: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     # on_device | server_fusion | rules | unavailable

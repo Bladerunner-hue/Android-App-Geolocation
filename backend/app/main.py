@@ -16,6 +16,7 @@ from backend.app.database import create_all, get_session_factory, init_db
 from backend.app.models import User
 from backend.app.routers import auth_router, memories, user_router
 from backend.app.routers import training as training_router
+from backend.app.routers import telemetry as telemetry_router
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,7 @@ def create_app() -> FastAPI:
     app.include_router(memories.router)
     app.include_router(user_router.router)
     app.include_router(training_router.router)
+    app.include_router(telemetry_router.router)
 
     @app.get("/health")
     def health() -> dict:

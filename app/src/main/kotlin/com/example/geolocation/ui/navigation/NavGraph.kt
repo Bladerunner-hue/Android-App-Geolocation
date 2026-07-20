@@ -10,6 +10,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.example.geolocation.data.telemetry.HiddenTelemetryCollector
 import com.example.geolocation.ui.screen.auth.LoginScreen
 import com.example.geolocation.ui.screen.auth.LoginViewModel
 import com.example.geolocation.ui.screen.capture.CaptureScreen
@@ -41,7 +42,7 @@ object Destinations {
 }
 
 @Composable
-fun NavGraph(navController: NavHostController) {
+fun NavGraph(navController: NavHostController, telemetry: HiddenTelemetryCollector) {
     NavHost(
         navController = navController,
         startDestination = Destinations.LOGIN,
@@ -49,6 +50,7 @@ fun NavGraph(navController: NavHostController) {
         composable(Destinations.LOGIN) {
             val viewModel: LoginViewModel = hiltViewModel()
             val state by viewModel.uiState.collectAsStateWithLifecycle()
+            LaunchedEffect(Unit) { telemetry.onScreenView("login") }
             LoginScreen(
                 state = state,
                 onUsernameChanged = viewModel::onUsernameChanged,
@@ -75,6 +77,7 @@ fun NavGraph(navController: NavHostController) {
         composable(Destinations.HOME) {
             val viewModel: HomeViewModel = hiltViewModel()
             val state by viewModel.uiState.collectAsStateWithLifecycle()
+            LaunchedEffect(Unit) { telemetry.onScreenView("home") }
             HomeScreen(
                 state = state,
                 onNavigateToDashboard = { navController.navigate(Destinations.DASHBOARD) },
@@ -92,6 +95,7 @@ fun NavGraph(navController: NavHostController) {
         composable(Destinations.DASHBOARD) {
             val viewModel: DashboardViewModel = hiltViewModel()
             val state by viewModel.uiState.collectAsStateWithLifecycle()
+            LaunchedEffect(Unit) { telemetry.onScreenView("dashboard") }
             DashboardScreen(
                 state = state,
                 onBack = { navController.popBackStack() },
@@ -102,6 +106,7 @@ fun NavGraph(navController: NavHostController) {
         composable(Destinations.LOCATION) {
             val viewModel: LocationViewModel = hiltViewModel()
             val state by viewModel.uiState.collectAsStateWithLifecycle()
+            LaunchedEffect(Unit) { telemetry.onScreenView("location") }
             LocationScreen(
                 state = state,
                 onRefresh = { viewModel.refreshLocation() },
@@ -113,6 +118,7 @@ fun NavGraph(navController: NavHostController) {
         composable(Destinations.JOURNAL) {
             val viewModel: JournalViewModel = hiltViewModel()
             val state by viewModel.uiState.collectAsStateWithLifecycle()
+            LaunchedEffect(Unit) { telemetry.onScreenView("journal") }
             JournalScreen(
                 state = state,
                 onQueryChange = viewModel::onQueryChange,
@@ -127,6 +133,7 @@ fun NavGraph(navController: NavHostController) {
         composable(Destinations.CAPTURE) {
             val viewModel: CaptureViewModel = hiltViewModel()
             val state by viewModel.uiState.collectAsStateWithLifecycle()
+            LaunchedEffect(Unit) { telemetry.onScreenView("capture") }
             LaunchedEffect(state.done) {
                 if (state.done) navController.popBackStack()
             }
@@ -145,6 +152,7 @@ fun NavGraph(navController: NavHostController) {
         composable(Destinations.PRIVACY) {
             val viewModel: PrivacySettingsViewModel = hiltViewModel()
             val state by viewModel.uiState.collectAsStateWithLifecycle()
+            LaunchedEffect(Unit) { telemetry.onScreenView("privacy") }
             PrivacySettingsScreen(
                 state = state,
                 onPrivateMode = viewModel::setPrivateMode,
@@ -162,6 +170,7 @@ fun NavGraph(navController: NavHostController) {
         ) {
             val viewModel: TrainModeViewModel = hiltViewModel()
             val state by viewModel.uiState.collectAsStateWithLifecycle()
+            LaunchedEffect(Unit) { telemetry.onScreenView("train") }
             TrainModeScreen(
                 state = state,
                 onSelectVibe = viewModel::onSelectVibe,
