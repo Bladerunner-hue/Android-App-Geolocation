@@ -62,7 +62,7 @@ def test_hash_embed_stable():
     c = _hash_embed_text("forest rain")
     assert a == b
     assert a != c
-    assert len(a) == TEXT_EMBED_DIM == 768
+    assert len(a) == TEXT_EMBED_DIM == 1024
     assert abs(sum(x * x for x in a) - 1.0) < 1e-6
     # Must not depend on PYTHONHASHSEED / builtin hash()
     assert a[0] == b[0]

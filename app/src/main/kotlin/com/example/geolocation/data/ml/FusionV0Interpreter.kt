@@ -12,9 +12,11 @@ import org.tensorflow.lite.Interpreter
  * fusion_v0.tflite runner.
  *
  * Expected inputs (precomputed embeddings — not raw pixels/WAV):
- *   image_embedding [1,576], audio_embedding [1,1024], context [1,12], modality_mask [1,3]
+ *   image_embedding [1, IMAGE_DIM=576], audio_embedding [1, AUDIO_DIM=1024],
+ *   context [1, 12], modality_mask [1, 3]
  * Outputs:
- *   vibe_probabilities [1,7], perceptual_embedding [1,128], vibe_id [1]
+ *   vibe_probabilities [1, 7], perceptual_embedding [1, PERCEPTUAL_DIM=128]
+ * Note: audio 1024 (YAMNet) is NOT E5 semantic 1024.
  *
  * Honest unavailable when asset missing. Never invents random vibes.
  */
@@ -64,10 +66,10 @@ class FusionV0Interpreter @Inject constructor(
         val interp = interpreter
             ?: return Result.Unavailable(error ?: "$ASSET_NAME not packaged")
 
-        require(imageEmbedding.size == 576)
-        require(audioEmbedding.size == 1024)
-        require(context12.size == 12)
-        require(modalityMask.size == 3)
+        require(imageEmbedding.size == EmbeddingContract.IMAGE_DIM)
+        require(audioEmbedding.size == EmbeddingContract.AUDIO_DIM)
+        require(context12.size == EmbeddingContract.CONTEXT_DIM)
+        require(modalityMask.size == EmbeddingContract.MASK_DIM)
 
         // Zero missing modalities (mask: photo, audio, time — time always 1)
         val img = imageEmbedding.copyOf()
@@ -76,8 +78,8 @@ class FusionV0Interpreter @Inject constructor(
         if (modalityMask[1] == 0f) aud.fill(0f)
 
         return try {
-            val probs = Array(1) { FloatArray(7) }
-            val perc = Array(1) { FloatArray(128) }
+            val probs = Array(1) { FloatArray(EmbeddingContract.VIBE_PROBS_DIM) }
+            val perc = Array(1) { FloatArray(EmbeddingContract.PERCEPTUAL_DIM) }
             // Prefer named signature outputs (never pick first dim-7 tensor by index).
             try {
                 val inMap = hashMapOf<String, Any>(

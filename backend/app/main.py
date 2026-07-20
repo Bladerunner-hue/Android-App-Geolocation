@@ -83,8 +83,12 @@ def create_app() -> FastAPI:
             "service": "geojournal-api",
             "embedding_contract": {
                 "perceptual": 128,
-                "text": 768,
+                "semantic_e5": 1024,
+                "text": 1024,
                 "insight": 128,
+                "audio_yamnet": 1024,
+                "image_mobilenet": 576,
+                "semantic_model": "intfloat/e5-large-v2",
             },
         }
 

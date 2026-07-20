@@ -87,7 +87,7 @@ def test_search_lexical_and_semantic(client, auth_headers):
     r = client.get("/api/memories/search", params={"q": "Lisbon"}, headers=auth_headers)
     assert r.status_code == 200
     body = r.json()
-    # Never claim "semantic" until a real 768 encoder is wired.
+    # Never claim "semantic" until E5 1024-D rows exist in memory_semantic_embeddings.
     assert body["mode"] in ("lexical", "lexical_placeholder")
     assert any("Lisbon" in (m.get("caption") or "") for m in body["results"])
 

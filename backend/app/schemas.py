@@ -12,6 +12,7 @@ from backend.app.models import (
     ANALYSIS_SOURCES,
     INSIGHT_DIM,
     PERCEPTUAL_DIM,
+    SEMANTIC_DIM,
     TEXT_EMBED_DIM,
     VIBE_LABELS,
 )
@@ -217,5 +218,7 @@ class TrainingLabelResponse(BaseModel):
 class EmbeddingContract(BaseModel):
     perceptual_dim: int = PERCEPTUAL_DIM
     text_dim: int = TEXT_EMBED_DIM
+    semantic_dim: int = SEMANTIC_DIM
     insight_dim: int = INSIGHT_DIM
+    semantic_model: str = "intfloat/e5-large-v2"
     vibe_labels: tuple[str, ...] = VIBE_LABELS

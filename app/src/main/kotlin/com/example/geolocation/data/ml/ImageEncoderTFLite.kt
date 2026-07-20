@@ -22,7 +22,7 @@ class ImageEncoderTFLite @Inject constructor(
 ) {
     companion object {
         const val ASSET_NAME = "mobilenet_v3_small.tflite"
-        const val DIM = 576
+        const val DIM = EmbeddingContract.IMAGE_DIM
         const val SIDE = 224
     }
 

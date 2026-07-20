@@ -140,6 +140,8 @@ class MemoryRepository @Inject constructor(
             analysisSource = analysisSource,
             perceptualEmbeddingJson = perceptual?.let { MemoryAnalyzeMapper.floatsToJson(it) },
             insightEmbeddingJson = null,
+            // E5 1024-D is filled by server backfill / optional client HTTP — not fusion.
+            semanticEmbeddingJson = null,
             structuredEvidenceJson = structured,
         )
         val id = memoryDao.insert(entity)

@@ -8,14 +8,14 @@
 | **FastAPI + PG16/pgvector** | Auth, media, memories, training_labels, vector search storage |
 | **pyenv TF + PySpark** | Offline train from consented labels → TFLite back to edge |
 
-Kotlin is **edge capture + telemetry**, not a second trainer or 768-D encoder.
+Kotlin is **edge capture + telemetry**, not a second trainer or E5 host (E5 stays on :6100).
 
 ## Boundaries
 
 - TensorFlow does not run inside Spark ETL or the FastAPI request path.
 - TFLite returns tensors; Kotlin maps them to typed evidence.
 - Classifier exposes **vibe probabilities + perceptual embedding**, not chain-of-thought.
-- Text semantic search uses a **768-D** multilingual encoder; fusion perceptual is **128-D**.
+- Text semantic search uses **E5 1024-D** (`intfloat/e5-large-v2` @ :6100); fusion perceptual is **128-D**.
 - Private Mode defaults on; cloud sync and enrichment are separate opt-ins.
 - API failure never silently sends media/GPS to a cloud LLM.
 - **Single JWT store:** `TokenStore` → `AuthInterceptor` (no dual DataStore/Room token).

@@ -63,7 +63,7 @@ python -m ml.train_fusion_v0 \
 1. **Train vibes only from human Train Mode labels** — never invent 7-class vibes from ESC/FSD/images.
 2. **Three model spaces stay separate:**
    - `fusion_v0` → vibe probs [7] + perceptual [128]
-   - multilingual text encoder → semantic [768] + pgvector search
+   - E5 text encoder → semantic [1024] + pgvector (`intfloat/e5-large-v2` @ :6100)
    - optional sound-event head → factual events (rain/speech/traffic)
 3. **Frozen encoders first:** MobileNetV3Small [576], YAMNet mean-pool [1024].
 4. **Public data policy:** ESC-10 benchmark (CC BY); ESC-50 full noncommercial; FSD50K start CC0; image-emotion sets skip for v0.
@@ -81,7 +81,7 @@ python -m ml.train_fusion_v0 \
 | Human Train Mode volume | Target wiring ~30/class; internal v0 ~100–150/class |
 | Publish production branch | Public GitHub `master` may lag; cloud Jobs need published code or image digest |
 | On-device encoder TFLite | MobileNet + YAMNet on Android for full edge path |
-| Semantic 768 service | Separate from TF train env (sentence-transformers) |
+| Semantic 1024 E5 service | Direct HTTP :6100 `intfloat/e5-large-v2` (OpenClaw bridge :6200) |
 | Multi-seed sweeps | 42 / 1337 / 2026 + LR / dropout grid — not on test set |
 | Baselines | Majority, logistic, image-only, audio-only, context-only |
 

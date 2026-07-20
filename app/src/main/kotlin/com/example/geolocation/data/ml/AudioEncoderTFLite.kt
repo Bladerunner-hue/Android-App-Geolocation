@@ -21,7 +21,8 @@ class AudioEncoderTFLite @Inject constructor(
 ) {
     companion object {
         const val ASSET_NAME = "yamnet_meanpool.tflite"
-        const val DIM = 1024
+        /** YAMNet mean-pool — not E5 SEMANTIC_DIM (also 1024). */
+        const val DIM = EmbeddingContract.AUDIO_DIM
         const val SAMPLE_RATE = 16_000
     }
 

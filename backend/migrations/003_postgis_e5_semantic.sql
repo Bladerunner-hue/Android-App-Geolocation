@@ -15,7 +15,7 @@
 --   E5 multilingual large → vector(1024) in memory_semantic_embeddings  (NOT fusion space)
 --
 -- Model id used by the offline/API encoder helper:
---   intfloat/multilingual-e5-large-instruct   (1024-D; use "query: "/"passage: " prefixes)
+--   intfloat/e5-large-v2 via HTTP :6100  (1024-D; use "query: "/"passage: " prefixes)
 
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS postgis;
@@ -89,7 +89,7 @@ CREATE INDEX IF NOT EXISTS idx_memories_semantic_hnsw
     USING hnsw (embedding vector_cosine_ops);
 
 COMMENT ON TABLE memory_semantic_embeddings IS
-  'Text/caption semantic space. Default model: intfloat/multilingual-e5-large-instruct (1024-D).';
+  'Text/caption semantic space. Default model: intfloat/e5-large-v2 (1024-D, HTTP :6100).';
 
 -- Optional: side table for perceptual if you want multi-revision fusion heads
 CREATE TABLE IF NOT EXISTS memory_perceptual_embeddings (

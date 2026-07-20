@@ -82,7 +82,7 @@ Fail-closed **FastAPI** + SQLAlchemy → **PostgreSQL 16 + pgvector**.
 
 - Env: `backend/.env.example` (`JWT_SECRET` + `GEO_DATABASE_URL` required)
 - Schema: `001_memories_pgvector.sql` then **`002_ai_ml_alignment.sql`**
-  (text 768-D, perceptual/insight columns, `training_labels`)
+  (E5 semantic **1024-D**, perceptual 128-D, `training_labels`)
 - Rules: reject `private_mode` uploads; never invent vibes; enrichment gated;
   no Spark/training in the request path
 - Train labels: `POST /api/training/labels` (requires `consent_for_cloud`)

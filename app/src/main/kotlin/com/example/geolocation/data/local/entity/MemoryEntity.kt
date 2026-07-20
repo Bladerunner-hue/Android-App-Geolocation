@@ -43,10 +43,15 @@ data class MemoryEntity(
     val modelVersion: String? = null,
     /** on_device | server_fusion | rules | unavailable */
     val analysisSource: String = "unavailable",
-    /** JSON float[128] fusion_v0 perceptual */
+    /** JSON float[128] fusion_v0 perceptual (NOT E5) */
     val perceptualEmbeddingJson: String? = null,
     /** JSON float[128] optional insight (null until aux head ships) */
     val insightEmbeddingJson: String? = null,
+    /**
+     * JSON float[1024] E5 semantic (intfloat/e5-large-v2).
+     * Same space as Postgres memory_semantic_embeddings — never fusion perceptual.
+     */
+    val semanticEmbeddingJson: String? = null,
     /**
      * vibe_probs[7], modality_mask[3], context12, context12_revision, source, contract
      */

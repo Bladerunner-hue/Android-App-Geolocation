@@ -17,7 +17,7 @@ import com.example.geolocation.data.local.entity.UserEntity
         MemoryEntity::class,
         MemoryTrainingLabelEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -121,6 +121,13 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE memories ADD COLUMN insightEmbeddingJson TEXT")
+            }
+        }
+
+        /** v5 → v6: E5 semantic 1024-D JSON (matches memory_semantic_embeddings). */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE memories ADD COLUMN semanticEmbeddingJson TEXT")
             }
         }
     }

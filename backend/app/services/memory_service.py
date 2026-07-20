@@ -184,7 +184,8 @@ class MemoryService:
         text_blob = " ".join(
             filter(None, [meta.caption, vibe, f"{meta.latitude},{meta.longitude}"])
         )
-        # Placeholder 768-D hash until a real multilingual encoder is wired.
+        # Placeholder hash (1024-D to match E5 width). Prefer memory_semantic_embeddings
+        # filled by GEO_E5_BASE_URL backfill — do not treat as real semantic quality.
         text_emb = _hash_embed_text(text_blob) if text_blob.strip() else None
 
         mem = Memory(
@@ -233,7 +234,8 @@ class MemoryService:
 
     def search(self, user: User, q: str, limit: int = 20) -> Tuple[str, List[MemoryResponse]]:
         """Primary path: SQL lexical search. Hash-vector ranking is labeled
-        ``lexical_placeholder`` — never ``semantic`` until a real 768 encoder exists.
+        ``lexical_placeholder`` — never ``semantic`` until E5 vectors are in
+        memory_semantic_embeddings (intfloat/e5-large-v2, 1024-D).
         """
         q = (q or "").strip()
         if not q:

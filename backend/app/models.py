@@ -4,9 +4,11 @@ Postgres production types live in migrations (pgvector). ORM columns use JSON fo
 embeddings so GEO_TEST_MODE SQLite stays dependency-light. Application code owns
 vector dimensions:
 
-  perceptual_embedding  128  — fusion_v0
-  text_embedding        768  — multilingual semantic (separate space)
-  insight_embedding     128  — optional auxiliary
+  perceptual_embedding  128   — fusion_v0 (NOT E5)
+  text_embedding       1024   — E5 e5-large-v2 placeholder column / legacy
+  semantic table       1024   — memory_semantic_embeddings (canonical E5 store)
+  insight_embedding     128   — optional auxiliary
+  YAMNet audio         1024   — different space from E5 text
 """
 
 from __future__ import annotations
@@ -42,8 +44,13 @@ VIBE_LABELS = (
 )
 
 PERCEPTUAL_DIM = 128
-TEXT_EMBED_DIM = 768
+# E5 intfloat/e5-large-v2 via HTTP :6100 — matches memory_semantic_embeddings
+TEXT_EMBED_DIM = 1024
+SEMANTIC_DIM = 1024
 INSIGHT_DIM = 128
+AUDIO_YAMNET_DIM = 1024
+IMAGE_MOBILENET_DIM = 576
+SEMANTIC_MODEL_ID = "intfloat/e5-large-v2"
 
 ANALYSIS_SOURCES = frozenset(
     {"unavailable", "on_device", "server_fusion", "rules"}
