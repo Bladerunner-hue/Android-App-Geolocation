@@ -22,6 +22,17 @@ Vertical-slice priority over Gemini Nano / Kalman / AR:
 | Real pgvector SQL + PostGIS | Deferred (schema ready; app still JSON/SQLite-friendly) |
 | CameraX rewrite | Deferred until capture path is green end-to-end |
 
+## Sprint (bronze export + encoders scaffold) 2026-07-20
+
+| Item | Status |
+|------|--------|
+| `TrainingBronzeExporter` (consent_for_training → bronze JSONL + zip) | Done — Privacy screen button |
+| `ImageEncoderTFLite` / `AudioEncoderTFLite` load assets if present | Done — honest unavailable without assets |
+| `extractorsReady` flips when both encoder assets package | Done |
+| `ml/export_encoders_tflite.py` | Done — MobileNet (+ YAMNet if hub available) |
+| `insightEmbeddingJson` Room v5 | Done |
+| Journal uses `EdgeMemoryAnalyzer` | Done |
+
 ## Confirmed (this machine)
 
 | Item | Status |

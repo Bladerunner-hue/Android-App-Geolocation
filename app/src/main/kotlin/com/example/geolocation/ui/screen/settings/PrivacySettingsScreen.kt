@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -21,13 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-data class PrivacyUiState(
-    val privateMode: Boolean = true,
-    val cloudSync: Boolean = false,
-    val enrichment: Boolean = false,
-    val audioCapture: Boolean = false,
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrivacySettingsScreen(
@@ -36,12 +30,13 @@ fun PrivacySettingsScreen(
     onCloudSync: (Boolean) -> Unit,
     onEnrichment: (Boolean) -> Unit,
     onAudio: (Boolean) -> Unit,
+    onExportTrainingBronze: () -> Unit,
     onBack: () -> Unit,
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Privacy") },
+                title = { Text("Privacy & training") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -72,6 +67,24 @@ fun PrivacySettingsScreen(
                 onChange = onEnrichment,
             )
             ToggleRow("Enable ambient audio capture", state.audioCapture, onAudio)
+            Spacer(Modifier.height(20.dp))
+            Text("Local training export (before backend)")
+            Text(
+                "Writes bronze_events.jsonl + media zip from Train Mode rows with " +
+                    "consent_for_training. No cloud. Feed ml/prepare_fusion_dataset.",
+            )
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = onExportTrainingBronze,
+                enabled = !state.exportBusy,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (state.exportBusy) "Exporting…" else "Export consented training bronze")
+            }
+            state.exportMessage?.let {
+                Spacer(Modifier.height(8.dp))
+                Text(it)
+            }
             Spacer(Modifier.height(16.dp))
             Text(
                 "An API failure never silently sends media to a cloud LLM. " +

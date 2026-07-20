@@ -139,6 +139,7 @@ class MemoryRepository @Inject constructor(
             modelVersion = modelVersion,
             analysisSource = analysisSource,
             perceptualEmbeddingJson = perceptual?.let { MemoryAnalyzeMapper.floatsToJson(it) },
+            insightEmbeddingJson = null,
             structuredEvidenceJson = structured,
         )
         val id = memoryDao.insert(entity)

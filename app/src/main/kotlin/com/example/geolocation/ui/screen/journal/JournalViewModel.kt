@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.geolocation.data.local.PrivacyPreferences
 import com.example.geolocation.data.local.entity.MemoryEntity
-import com.example.geolocation.data.ml.OnDeviceVibeAnalyzer
+import com.example.geolocation.data.ml.EdgeMemoryAnalyzer
 import com.example.geolocation.data.repository.MemoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -26,16 +26,18 @@ data class JournalUiState(
 class JournalViewModel @Inject constructor(
     private val memoryRepository: MemoryRepository,
     private val privacy: PrivacyPreferences,
-    private val analyzer: OnDeviceVibeAnalyzer,
+    private val edgeAnalyzer: EdgeMemoryAnalyzer,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(JournalUiState())
     val uiState: StateFlow<JournalUiState> = _uiState.asStateFlow()
 
     init {
-        val ml = when (val s = analyzer.status()) {
-            is OnDeviceVibeAnalyzer.AnalysisResult.Unavailable -> "unavailable"
-            is OnDeviceVibeAnalyzer.AnalysisResult.Available -> "model loaded"
+        val cap = edgeAnalyzer.capability()
+        val ml = when {
+            cap.modelReady && cap.extractorsReady -> "edge ready (fusion_v0 + encoders)"
+            cap.modelReady -> "fusion_v0 packaged; encoders missing"
+            else -> "unavailable"
         }
         _uiState.update { it.copy(mlStatus = ml) }
 
@@ -63,8 +65,6 @@ class JournalViewModel @Inject constructor(
         _uiState.update { it.copy(query = q) }
         viewModelScope.launch {
             val results = if (q.isBlank()) {
-                memoryRepository.observeMemories()
-                // fall back to last list via search empty
                 memoryRepository.searchLocal("")
             } else {
                 memoryRepository.searchLocal(q)

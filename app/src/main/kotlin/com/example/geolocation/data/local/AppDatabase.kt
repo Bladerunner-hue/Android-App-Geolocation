@@ -17,7 +17,7 @@ import com.example.geolocation.data.local.entity.UserEntity
         MemoryEntity::class,
         MemoryTrainingLabelEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -114,6 +114,13 @@ abstract class AppDatabase : RoomDatabase() {
                     "CREATE INDEX IF NOT EXISTS index_memory_training_labels_syncStatus " +
                         "ON memory_training_labels(syncStatus)",
                 )
+            }
+        }
+
+        /** v4 → v5: optional insight embedding column (server 002 parity). */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE memories ADD COLUMN insightEmbeddingJson TEXT")
             }
         }
     }

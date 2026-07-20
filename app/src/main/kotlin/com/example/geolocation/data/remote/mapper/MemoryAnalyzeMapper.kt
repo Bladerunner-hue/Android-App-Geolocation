@@ -92,7 +92,7 @@ object MemoryAnalyzeMapper {
             onDeviceConfidence = memory.vibeConfidence?.toString()?.let { text(it) },
             onDeviceProbs = vibesProbsFromEvidence(memory.structuredEvidenceJson),
             perceptualEmbedding = floatArrayJson(memory.perceptualEmbeddingJson),
-            insightEmbedding = null,
+            insightEmbedding = floatArrayJson(memory.insightEmbeddingJson),
             modelVersion = memory.modelVersion?.let { text(it) },
             analysisSource = text(memory.analysisSource),
             structuredEvidence = memory.structuredEvidenceJson?.let { text(it) },

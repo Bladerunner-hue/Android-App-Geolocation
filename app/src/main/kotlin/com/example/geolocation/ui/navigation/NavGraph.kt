@@ -151,6 +151,7 @@ fun NavGraph(navController: NavHostController) {
                 onCloudSync = viewModel::setCloudSync,
                 onEnrichment = viewModel::setEnrichment,
                 onAudio = viewModel::setAudio,
+                onExportTrainingBronze = viewModel::exportTrainingBronze,
                 onBack = { navController.popBackStack() },
             )
         }

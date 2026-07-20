@@ -8,7 +8,7 @@ import javax.inject.Singleton
 
 /**
  * Single edge-analysis port for capture telemetry.
- * fusion_v0 TFLite when packaged; honest Unavailable without extractors/model.
+ * fusion_v0 TFLite + optional MobileNet/YAMNet TFLite encoders.
  */
 interface EdgeMemoryAnalyzer {
     fun capability(): EdgeCapability
@@ -21,7 +21,6 @@ data class MemoryAnalysisInput(
     val hasLocation: Boolean,
     val context12: FloatArray,
     val modalityMask: FloatArray,
-    /** Precomputed embeddings when extractors exist; null → unavailable if model needs them. */
     val imageEmbedding: FloatArray? = null,
     val audioEmbedding: FloatArray? = null,
 )
@@ -53,14 +52,12 @@ sealed interface EdgeAnalysisResult {
     data class Failed(val code: String, val detail: String? = null) : EdgeAnalysisResult
 }
 
-/**
- * Canonical adapter: one asset name (`fusion_v0.tflite`), one output contract.
- * Does not invent vibes. Does not claim Success when only "interpreter loaded".
- */
 @Singleton
 class FusionV0EdgeAnalyzer @Inject constructor(
     @ApplicationContext private val context: Context,
     private val fusion: FusionV0Interpreter,
+    private val imageEncoder: ImageEncoderTFLite,
+    private val audioEncoder: AudioEncoderTFLite,
 ) : EdgeMemoryAnalyzer {
 
     private val identity = ModelIdentity(
@@ -72,12 +69,18 @@ class FusionV0EdgeAnalyzer @Inject constructor(
 
     override fun capability(): EdgeCapability {
         val modelReady = fusion.isAvailable()
-        // MobileNet / YAMNet not bundled yet — extractors always false on v0.
-        val extractorsReady = false
+        val extractorsReady = imageEncoder.isAvailable() && audioEncoder.isAvailable()
         val reason = when {
             !modelReady -> fusion.unavailableReason() ?: "fusion_v0.tflite not packaged"
-            !extractorsReady ->
-                "Model present but MobileNet/YAMNet extractors not bundled; analysis unavailable"
+            !extractorsReady -> {
+                val parts = listOfNotNull(
+                    imageEncoder.unavailableReason(),
+                    audioEncoder.unavailableReason(),
+                )
+                parts.joinToString("; ").ifBlank {
+                    "Encoder TFLite assets not packaged (mobilenet_v3_small / yamnet_meanpool)"
+                }
+            }
             else -> null
         }
         return EdgeCapability(
@@ -89,21 +92,51 @@ class FusionV0EdgeAnalyzer @Inject constructor(
 
     override fun analyze(input: MemoryAnalysisInput): EdgeAnalysisResult {
         val cap = capability()
-        if (!cap.modelReady || !cap.extractorsReady) {
+        if (!cap.modelReady) {
             return EdgeAnalysisResult.Unavailable(
-                cap.reasonIfUnavailable ?: "edge analysis unavailable",
-            )
-        }
-        val img = input.imageEmbedding
-        val aud = input.audioEmbedding
-        if (img == null || aud == null) {
-            return EdgeAnalysisResult.Unavailable(
-                "Precomputed embeddings required (extractors not on device yet)",
+                cap.reasonIfUnavailable ?: "model unavailable",
             )
         }
         if (input.modalityMask.size != 3) {
             return EdgeAnalysisResult.Failed("bad_mask", "modality_mask must be length 3")
         }
+
+        val imgEmb = input.imageEmbedding
+            ?: if (input.photo != null && imageEncoder.isAvailable()) {
+                imageEncoder.embed(input.photo)
+            } else {
+                null
+            }
+        val audEmb = input.audioEmbedding
+            ?: if (input.audio != null && audioEncoder.isAvailable()) {
+                audioEncoder.embed(input.audio)
+            } else {
+                null
+            }
+
+        // Zero vectors when modality absent (mask will zero in fusion too)
+        val img = when {
+            input.modalityMask[0] == 0f -> FloatArray(ImageEncoderTFLite.DIM)
+            imgEmb != null -> imgEmb
+            else -> null
+        }
+        val aud = when {
+            input.modalityMask[1] == 0f -> FloatArray(AudioEncoderTFLite.DIM)
+            audEmb != null -> audEmb
+            else -> null
+        }
+
+        if (img == null || aud == null) {
+            return EdgeAnalysisResult.Unavailable(
+                if (!cap.extractorsReady) {
+                    cap.reasonIfUnavailable
+                        ?: "extractors not on-device — provide precomputed embeddings or package TFLite encoders"
+                } else {
+                    "Failed to embed media (decode/inference error)"
+                },
+            )
+        }
+
         val t0 = System.nanoTime()
         return when (
             val r = fusion.run(

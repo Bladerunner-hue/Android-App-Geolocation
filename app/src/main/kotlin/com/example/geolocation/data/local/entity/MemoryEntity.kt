@@ -6,8 +6,8 @@ import androidx.room.PrimaryKey
 
 /**
  * Offline-first journal row. Sync bookkeeping is local-only.
- * AI telemetry (probs, perceptual, context12) lives in structuredEvidenceJson
- * and perceptualEmbeddingJson — aligned with backend 002 / fusion_v0.
+ * AI telemetry lives in structuredEvidenceJson / perceptual / insight JSON —
+ * aligned with backend 002 / fusion_v0.
  */
 @Entity(
     tableName = "memories",
@@ -40,14 +40,14 @@ data class MemoryEntity(
     val serverId: Long?,
     /** @deprecated prefer structuredEvidenceJson */
     val evidenceJson: String? = null,
-    /** fusion_v0, etc. */
     val modelVersion: String? = null,
     /** on_device | server_fusion | rules | unavailable */
     val analysisSource: String = "unavailable",
-    /** JSON float[128] perceptual embedding from fusion_v0 */
+    /** JSON float[128] fusion_v0 perceptual */
     val perceptualEmbeddingJson: String? = null,
+    /** JSON float[128] optional insight (null until aux head ships) */
+    val insightEmbeddingJson: String? = null,
     /**
-     * Production evidence blob:
      * vibe_probs[7], modality_mask[3], context12, context12_revision, source, contract
      */
     val structuredEvidenceJson: String? = null,
