@@ -45,6 +45,28 @@ psql "$GEO_DATABASE_URL" -f backend/migrations/004_text_embedding_1024.sql
 
 ---
 
+## 0b. Optional: sparse MoE capacity (same TFLite I/O)
+
+Dense `fusion_v0` remains the **release baseline**. MoE is opt-in:
+
+```bash
+python -m ml.train_moe_v0 \
+  --manifest /secure/fusion_data/manifest.json \
+  --weights-out ml/artifacts/fusion-moe-v0.weights.h5 \
+  --num-experts 4 --top-k 2 --epochs 40 --seed 42
+
+# Export with same signatures as dense (Kotlin unchanged):
+python -m ml.export_tflite \
+  --architecture moe \
+  --weights ml/artifacts/fusion-moe-v0.weights.h5 \
+  --parity-data /secure/fusion_data/eval/parity.npz \
+  --out app/src/main/assets/fusion_v0.tflite \
+  --savedmodel-dir ml/artifacts/fusion-moe-v0/saved_model \
+  --quantization float32 --force
+```
+
+Ship as `fusion_v0.tflite` only if held-out macro-F1 **beats** dense on the same sessions.
+
 ## 1. Export fusion head (after Train Mode data + train)
 
 ```bash

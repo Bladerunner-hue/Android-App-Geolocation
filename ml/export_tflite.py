@@ -51,6 +51,7 @@ def export(
     min_calibration_samples: int = 256,
     force: bool = False,
     max_prob_mae: float = 1e-3,
+    architecture: str = "dense",
 ) -> Dict[str, Any]:
     import tensorflow as tf
 
@@ -71,7 +72,12 @@ def export(
     if savedmodel_dir.exists() and not force:
         raise FileExistsError(f"Refusing overwrite {savedmodel_dir} (use --force)")
 
-    model = build_fusion_v0()
+    if architecture == "moe":
+        from ml.fusion_moe_v0 import build_fusion_moe_v0
+
+        model = build_fusion_moe_v0()
+    else:
+        model = build_fusion_v0()
     model.load_weights(str(weights))
 
     parity = _load_features(parity_data)
@@ -224,6 +230,12 @@ def main() -> int:
     p.add_argument("--min-calibration-samples", type=int, default=256)
     p.add_argument("--force", action="store_true")
     p.add_argument("--max-prob-mae", type=float, default=1e-3)
+    p.add_argument(
+        "--architecture",
+        choices=("dense", "moe"),
+        default="dense",
+        help="dense=fusion_v0 (release baseline), moe=fusion_moe_v0 (same I/O, optional capacity)",
+    )
     args = p.parse_args()
     report = export(
         weights=args.weights,
@@ -235,6 +247,7 @@ def main() -> int:
         min_calibration_samples=args.min_calibration_samples,
         force=args.force,
         max_prob_mae=args.max_prob_mae,
+        architecture=args.architecture,
     )
     print(json.dumps(report, indent=2))
     return 0
